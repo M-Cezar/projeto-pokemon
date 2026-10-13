@@ -38,9 +38,9 @@ class CatalogFunctionalTests(unittest.TestCase):
     def test_15_script_paths_exist(self):
         for a in nodes("script"):self.assertTrue((R/a["src"]).is_file())
     def test_16_pokemon_numbers_unique(self):
-        nums=re.findall(r"#(\\d{3})",H);self.assertEqual(len(nums),len(set(nums)))
+        nums=re.findall(r"#(\d{3})",H);self.assertEqual(len(nums),len(set(nums)))
     def test_17_pokemon_numbers_complete(self):
-        nums=re.findall(r"#(\\d{3})",H);self.assertEqual(nums,[f"{i:03d}" for i in range(1,16)])
+        nums=re.findall(r"#(\d{3})",H);self.assertEqual(nums,[f"{i:03d}" for i in range(1,16)])
     def test_18_all_cards_have_descriptions(self):self.assertEqual(len(re.findall(r'class="descricao"',H)),len(cards()))
     def test_19_all_cards_have_gifs(self):self.assertEqual(len([a for a in nodes("img") if "gif" in a.get("class","").split()]),len(cards()))
     def test_20_all_cards_have_types(self):self.assertEqual(len([a for a in nodes("ul") if "tipos" in a.get("class","").split()]),len(cards()))
