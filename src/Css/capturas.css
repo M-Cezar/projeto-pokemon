@@ -1,0 +1,26 @@
+/* Capturas persistentes: estados visuais do catálogo. */
+.capturar-pokemon {
+  width:100%; min-height:44px; margin-top:auto; padding:10px 12px;
+  border:2px solid #2563eb; border-radius:10px; background:#eff6ff;
+  color:#173e79; font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+}
+.capturar-pokemon[aria-pressed="true"] {
+  border-color:#166534; background:#dcfce7; color:#14532d;
+}
+.cartao-pokemon.capturado { outline:3px solid #22a35a; outline-offset:2px; }
+.capturados-filtro {
+  display:inline-flex; align-items:center; gap:8px; padding:8px 12px;
+  border:1px solid currentColor; border-radius:10px; cursor:pointer;
+}
+.filtros-pokemon .capturados-filtro input[type="checkbox"] {
+  min-height:20px; width:20px; height:20px; padding:0; margin:0; accent-color:#166534;
+}
+#progresso-captura { flex:1 0 100%; text-align:center; font-size:14px; font-weight:600; }
+.capturar-pokemon:focus-visible,.capturados-filtro:focus-within { outline:3px solid #2563eb; outline-offset:3px; }
+.modo-escuro .capturar-pokemon { background:#183151; color:#fff; border-color:#8ab4ff; }
+.modo-escuro .capturar-pokemon[aria-pressed="true"] { background:#174a31; border-color:#a7f3d0; }
+.modo-escuro .cartao-pokemon.capturado { outline-color:#86efac; }
+@media (max-width:480px) {
+  .filtros-pokemon .capturados-filtro { flex:1 0 100%; justify-content:center; }
+  main .cartao-pokemon { width:min(100%,280px); }
+}

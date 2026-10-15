@@ -132,3 +132,42 @@ main .descricao{
     font-size: 14px;
      padding-right: 10px;
     }
+
+/* Pesquisa do catálogo */
+.filtros-pokemon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.filtros-pokemon label {
+    font-size: 14px;
+    font-weight: 500;
+}
+.filtros-pokemon input,
+.filtros-pokemon select {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #666;
+    border-radius: 8px;
+    background: #fff;
+    color: #222;
+    font: inherit;
+}
+.filtros-pokemon input:focus-visible,
+.filtros-pokemon select:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+}
+#resultado-busca {
+    flex: 1 0 100%;
+    text-align: center;
+    font-size: 14px;
+}
+.listagem-pokemon > .cartao-pokemon[hidden] {
+    display: none;
+}
