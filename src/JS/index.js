@@ -21,6 +21,21 @@ const resultadoBusca = document.getElementById("resultado-busca");
 const cartoesPokemon = [...document.querySelectorAll(".listagem-pokemon > .cartao-pokemon")];
 const filtroCapturados = document.getElementById("filtrar-capturados") || Object.assign(document.createElement("input"), {type:"checkbox"});
 const progressoCaptura = document.getElementById("progresso-captura") || document.createElement("p");
+const filtros = document.querySelector(".filtros-pokemon");
+if (!filtroCapturados.id && filtros) {
+    filtroCapturados.id = "filtrar-capturados";
+    const rotulo = document.createElement("label");
+    rotulo.className = "capturados-filtro";
+    rotulo.htmlFor = filtroCapturados.id;
+    rotulo.append(filtroCapturados, document.createTextNode(" Somente capturados"));
+    filtros.insertBefore(rotulo, resultadoBusca);
+}
+if (!progressoCaptura.id && filtros) {
+    progressoCaptura.id = "progresso-captura";
+    progressoCaptura.setAttribute("role", "status");
+    progressoCaptura.setAttribute("aria-live", "polite");
+    filtros.insertBefore(progressoCaptura, resultadoBusca);
+}
 const CHAVE_CAPTURAS = "pokedex:capturados:v1";
 const numeroDoCartao = cartao => cartao.querySelectorAll(".informacoes span")[1].textContent.trim();
 const numerosDisponiveis = new Set(cartoesPokemon.map(numeroDoCartao));
