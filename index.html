@@ -27,6 +27,23 @@
         </button>
     </header>
     <main>
+        <section class="filtros-pokemon" aria-label="Pesquisar Pokémon">
+            <label for="buscar-pokemon">Buscar por nome ou número</label>
+            <input id="buscar-pokemon" type="search" placeholder="Ex.: Bulbasaur ou 001" autocomplete="off">
+            <label for="filtrar-tipo">Filtrar por tipo</label>
+            <select id="filtrar-tipo">
+                <option value="">Todos os tipos</option>
+                <option value="agua">Água</option>
+                <option value="fogo">Fogo</option>
+                <option value="grama">Grama</option>
+                <option value="inseto">Inseto</option>
+                <option value="lendario">Lendário</option>
+                <option value="psychic">Psíquico</option>
+                <option value="veneno">Veneno</option>
+                <option value="voador">Voador</option>
+            </select>
+            <p id="resultado-busca" role="status" aria-live="polite"></p>
+        </section>
         <ul class="listagem-pokemon">
             <li class="cartao-pokemon">
 
