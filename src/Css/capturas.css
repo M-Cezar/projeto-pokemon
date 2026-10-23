@@ -38,6 +38,24 @@
 .acoes-captura button:focus-visible { outline:3px solid #2563eb; outline-offset:2px; }
 .modo-escuro .acoes-captura button { background:#173453; color:#fff; border-color:#8ab4ff; }
 @media(max-width:480px){.acoes-captura button{flex:1 1 150px}}
+.acoes-backup{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  align-items:center;flex:1 0 100%;
+}
+.acoes-backup button{
+  min-height:44px;padding:9px 14px;border:2px solid #166534;
+  border-radius:10px;background:#edf9f1;color:#14532d;
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;
+}
+.acoes-backup button:focus-visible{outline:3px solid #2563eb;outline-offset:3px}
+.capturas-transferencia-status{
+  flex:1 0 100%;text-align:center;font-size:12px;line-height:1.5;
+  min-height:18px;margin:0;
+}
+.modo-escuro .acoes-backup button{
+  background:#16392e;color:#d7fbe3;border-color:#86efac;
+}
+@media(max-width:480px){.acoes-backup button{flex:1 1 135px}}
 #progresso-captura { flex:1 0 100%; text-align:center; font-size:14px; font-weight:600; }
 .capturar-pokemon:focus-visible,.capturados-filtro:focus-within { outline:3px solid #2563eb; outline-offset:3px; }
 .modo-escuro .capturar-pokemon { background:#183151; color:#fff; border-color:#8ab4ff; }
