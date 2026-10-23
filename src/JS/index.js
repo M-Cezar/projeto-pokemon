@@ -114,7 +114,8 @@ atualizarFiltros();
 const QUIZ_KEY = "pokedex:quiz-recorde:v1";
 const quizCards = cartoesPokemon.map(cartao => ({
     name: cartao.querySelector(".informacoes span").textContent.trim(),
-    image: cartao.querySelector("img.gif").getAttribute("src")
+    image: cartao.querySelector("img.gif").getAttribute("src"),
+    types: [...cartao.querySelectorAll(".tipos .tipo")].map(tipo => tipo.textContent.trim()).filter(Boolean)
 }));
 const quizSize = Math.min(10, quizCards.length);
 const quizButton = document.createElement("button");
@@ -193,6 +194,7 @@ let quizPoints = 0;
 let quizStreak = 0;
 let quizBestStreak = 0;
 let quizHintUsed = false;
+let quizHintLevel = 0;
 let quizHintsUsed = 0;
 function quizPointsRecord() {
     try {
@@ -210,6 +212,9 @@ function updateQuizScore() {
 function showQuizQuestion() {
     quizAnswered = false;
     quizHintUsed = false;
+    quizHintLevel = 0;
+    quizHint.textContent = "Revelar primeira letra";
+    quizHint.setAttribute("aria-label", "Revelar primeira letra do Pokémon");
     quizFeedback.textContent = "";
     quizHint.disabled = false;
     quizHint.hidden = false;
@@ -237,7 +242,7 @@ function showQuizQuestion() {
                 quizCorrect++;
                 quizStreak++;
                 quizBestStreak = Math.max(quizBestStreak, quizStreak);
-                quizPoints += quizHintUsed ? 1 : 2;
+                quizPoints += Math.max(0, 2 - quizHintLevel);
             } else quizStreak = 0;
             quizImage.classList.add("revelada");
             for (const button of quizOptions.querySelectorAll("button")) {
@@ -258,9 +263,17 @@ function showQuizQuestion() {
 }
 quizHint.addEventListener("click", () => {
     if (quizAnswered || quizIndex >= quizQuestions.length || quizHint.disabled) return;
-    const name = quizQuestions[quizIndex].name;
-    quizFeedback.textContent = "Dica: o nome começa com " + name.charAt(0).toUpperCase() + ".";
-    quizHint.disabled = true;
+    const current = quizQuestions[quizIndex];
+    if (quizHintLevel === 0) {
+        quizFeedback.textContent = "Dica 1: o nome começa com " + current.name.charAt(0).toUpperCase() + ".";
+        quizHint.textContent = "Revelar tipo ou tamanho";
+        quizHint.setAttribute("aria-label", "Revelar uma segunda dica sobre o Pokémon");
+    } else {
+        const typeText = current.types.length ? current.types.join(" e ") : current.name.length + " letras";
+        quizFeedback.textContent += " Dica 2: " + (current.types.length ? "tipo " : "nome com ") + typeText + ".";
+        quizHint.disabled = true;
+    }
+    quizHintLevel++;
     quizHintUsed = true;
     quizHintsUsed++;
 });
