@@ -152,6 +152,11 @@ const quizFeedback = document.createElement("p");
 quizFeedback.className = "quiz-retorno";
 quizFeedback.setAttribute("role", "status");
 quizFeedback.setAttribute("aria-live", "polite");
+const quizHint = document.createElement("button");
+quizHint.type = "button";
+quizHint.className = "quiz-dica";
+quizHint.textContent = "Revelar dica";
+quizHint.setAttribute("aria-label", "Revelar a primeira letra do Pokémon misterioso");
 const quizNext = document.createElement("button");
 quizNext.type = "button";
 quizNext.className = "quiz-proximo";
@@ -160,7 +165,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizScore, quizImage, quizOptions, quizFeedback, quizNext, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizScore, quizImage, quizOptions, quizFeedback, quizHint, quizNext, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -188,6 +193,8 @@ let quizAnswered = false;
 function showQuizQuestion() {
     quizAnswered = false;
     quizFeedback.textContent = "";
+    quizHint.disabled = false;
+    quizHint.hidden = false;
     quizNext.hidden = true;
     quizOptions.replaceChildren();
     const current = quizQuestions[quizIndex];
@@ -205,6 +212,8 @@ function showQuizQuestion() {
         option.addEventListener("click", () => {
             if (quizAnswered) return;
             quizAnswered = true;
+            quizHint.disabled = true;
+            quizHint.hidden = true;
             const correct = choice.name === current.name;
             if (correct) quizCorrect++;
             quizImage.classList.add("revelada");
@@ -224,6 +233,12 @@ function showQuizQuestion() {
         quizOptions.append(option);
     }
 }
+quizHint.addEventListener("click", () => {
+    if (quizAnswered || quizIndex >= quizQuestions.length || quizHint.disabled) return;
+    const name = quizQuestions[quizIndex].name;
+    quizFeedback.textContent = "Dica: o nome começa com " + name.charAt(0).toUpperCase() + ".";
+    quizHint.disabled = true;
+});
 function startQuiz() {
     if (quizCards.length < 4) return;
     quizQuestions = shuffleQuiz(quizCards).slice(0, quizSize);
@@ -240,6 +255,7 @@ function finishQuiz() {
     catch { /* O placar da sessão continua disponível. */ }
     quizIndex = quizSize;
     quizImage.hidden = true;
+    quizHint.hidden = true;
     quizOptions.replaceChildren();
     quizScore.textContent = "Resultado: " + quizCorrect + "/" + quizSize + " · Recorde: " + best + "/" + quizSize;
     quizFeedback.textContent = quizCorrect === quizSize
