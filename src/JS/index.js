@@ -20,6 +20,7 @@ const seletorTipo = document.getElementById("filtrar-tipo");
 const resultadoBusca = document.getElementById("resultado-busca");
 const cartoesPokemon = [...document.querySelectorAll(".listagem-pokemon > .cartao-pokemon")];
 const filtroCapturados = document.getElementById("filtrar-capturados") || Object.assign(document.createElement("input"), {type:"checkbox"});
+const filtroPendentes = document.getElementById("filtrar-pendentes") || Object.assign(document.createElement("input"), {type:"checkbox"});
 const progressoCaptura = document.getElementById("progresso-captura") || document.createElement("p");
 const filtros = document.querySelector(".filtros-pokemon");
 if (!filtroCapturados.id && filtros) {
@@ -29,6 +30,14 @@ if (!filtroCapturados.id && filtros) {
     rotulo.htmlFor = filtroCapturados.id;
     rotulo.append(filtroCapturados, document.createTextNode(" Somente capturados"));
     filtros.insertBefore(rotulo, resultadoBusca);
+}
+if (!filtroPendentes.id && filtros) {
+    filtroPendentes.id = "filtrar-pendentes";
+    const rotuloPendentes = document.createElement("label");
+    rotuloPendentes.className = "capturados-filtro";
+    rotuloPendentes.htmlFor = filtroPendentes.id;
+    rotuloPendentes.append(filtroPendentes, document.createTextNode(" Ainda não capturados"));
+    filtros.insertBefore(rotuloPendentes, resultadoBusca);
 }
 if (!progressoCaptura.id && filtros) {
     progressoCaptura.id = "progresso-captura";
@@ -93,12 +102,14 @@ function atualizarFiltros() {
         const tipos = [...cartao.querySelectorAll(".tipos .tipo")];
         const combinaBusca = !termo || nome.includes(termo) || numero.includes(termo.replace("#", ""));
         const combinaTipo = !tipo || tipos.some(item => item.classList.contains(tipo));
-        const combinaCaptura = !filtroCapturados.checked || capturados.has(numeroDoCartao(cartao));
+        const capturado = capturados.has(numeroDoCartao(cartao));
+        const combinaCaptura = (!filtroCapturados.checked || capturado) &&
+            (!filtroPendentes.checked || !capturado);
         cartao.hidden = !(combinaBusca && combinaTipo && combinaCaptura);
         if (!cartao.hidden) visiveis += 1;
     }
 
-    progressoCaptura.textContent = `${capturados.size} de ${cartoesPokemon.length} Pokémon capturados.`;
+    progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${cartoesPokemon.length} no total.`;
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
         : `${visiveis} de ${cartoesPokemon.length} Pokémon exibidos.`;
@@ -106,5 +117,12 @@ function atualizarFiltros() {
 
 campoBusca.addEventListener("input", atualizarFiltros);
 seletorTipo.addEventListener("change", atualizarFiltros);
-filtroCapturados.addEventListener("change", atualizarFiltros);
+filtroCapturados.addEventListener("change", () => {
+    if (filtroCapturados.checked) filtroPendentes.checked = false;
+    atualizarFiltros();
+});
+filtroPendentes.addEventListener("change", () => {
+    if (filtroPendentes.checked) filtroCapturados.checked = false;
+    atualizarFiltros();
+});
 atualizarFiltros();
