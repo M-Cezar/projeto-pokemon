@@ -123,6 +123,78 @@ if (filtros) {
     filtros.insertBefore(acoes, resultadoBusca);
 }
 
+// Local, versioned export/import. An import only adds valid species in the
+// current catalogue; no existing captured Pokémon is silently deleted.
+if (filtros) {
+    const transferir = document.createElement("div");
+    transferir.className = "acoes-backup";
+    const exportar = document.createElement("button");
+    exportar.type = "button";
+    exportar.textContent = "Exportar capturas";
+    const importar = document.createElement("button");
+    importar.type = "button";
+    importar.textContent = "Mesclar backup";
+    const arquivo = document.createElement("input");
+    arquivo.type = "file";
+    arquivo.accept = ".json,application/json";
+    arquivo.hidden = true;
+    const status = document.createElement("p");
+    status.className = "capturas-transferencia-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+
+    exportar.addEventListener("click", () => {
+        const conteudo = JSON.stringify({
+            versao: 1,
+            exportadoEm: new Date().toISOString(),
+            capturados: [...capturados].sort()
+        }, null, 2);
+        const url = URL.createObjectURL(new Blob([conteudo], {type: "application/json;charset=utf-8"}));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "pokedex-capturas.json";
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+        status.textContent = capturados.size + " capturas exportadas para arquivo local.";
+    });
+    importar.addEventListener("click", () => arquivo.click());
+    arquivo.addEventListener("change", async () => {
+        const selecionado = arquivo.files?.[0];
+        if (!selecionado) return;
+        try {
+            if (selecionado.size > 128 * 1024) {
+                throw new Error("Arquivo muito grande para um backup de capturas.");
+            }
+            const dados = JSON.parse(await selecionado.text());
+            if (!dados || dados.versao !== 1 || !Array.isArray(dados.capturados) ||
+                dados.capturados.length > 2000 ||
+                !dados.capturados.every(numero => typeof numero === "string" && numero.length <= 12)) {
+                throw new Error("O arquivo não é um backup de capturas válido.");
+            }
+            let novas = 0;
+            for (const numero of dados.capturados) {
+                if (!numerosDisponiveis.has(numero) || capturados.has(numero)) continue;
+                capturados.add(numero);
+                novas++;
+            }
+            if (novas) salvarCapturas();
+            renderizarCapturas.forEach(render => render());
+            atualizarFiltros();
+            status.textContent = novas ?
+                novas + " novas capturas mescladas. Suas capturas anteriores foram preservadas." :
+                "Nenhuma captura nova encontrada no backup.";
+        } catch (erro) {
+            status.textContent = erro instanceof Error ? erro.message : "Não foi possível ler o backup.";
+        } finally {
+            arquivo.value = "";
+        }
+    });
+    transferir.append(exportar, importar, arquivo, status);
+    filtros.insertBefore(transferir, resultadoBusca);
+}
+
 function normalizarBusca(texto) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
