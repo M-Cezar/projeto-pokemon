@@ -129,6 +129,18 @@ quizDialog.setAttribute("aria-labelledby", "quiz-titulo");
 const quizTitle = document.createElement("h2");
 quizTitle.id = "quiz-titulo";
 quizTitle.textContent = "Quem é esse Pokémon?";
+const quizDifficultyLabel = document.createElement("label");
+quizDifficultyLabel.className = "quiz-dificuldade";
+quizDifficultyLabel.textContent = "Dificuldade: ";
+const quizDifficulty = document.createElement("select");
+for (const [value, label] of [["facil", "Iniciante (3 opções)"], ["normal", "Treinador (4 opções)"], ["especialista", "Mestre (até 6 opções)"]]) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    quizDifficulty.append(option);
+}
+quizDifficulty.value = "normal";
+quizDifficultyLabel.append(quizDifficulty);
 const quizScore = document.createElement("p");
 quizScore.className = "quiz-placar";
 const quizImage = document.createElement("img");
@@ -148,7 +160,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizScore, quizImage, quizOptions, quizFeedback, quizNext, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizScore, quizImage, quizOptions, quizFeedback, quizNext, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -161,7 +173,8 @@ const shuffleQuiz = items => {
 };
 function quizRecord() {
     try {
-        const saved = Number(localStorage.getItem(QUIZ_KEY));
+        const key = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
+        const saved = Number(localStorage.getItem(key));
         return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizSize ? saved : 0;
     } catch {
         return 0;
@@ -182,7 +195,8 @@ function showQuizQuestion() {
     quizImage.src = current.image;
     quizImage.classList.remove("revelada");
     quizScore.textContent = "Pergunta " + (quizIndex + 1) + "/" + quizSize + " · Acertos: " + quizCorrect + " · Recorde: " + quizRecord();
-    const distractors = shuffleQuiz(quizCards.filter(card => card.name !== current.name)).slice(0, 3);
+    const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
+    const distractors = shuffleQuiz(quizCards.filter(card => card.name !== current.name)).slice(0, choices);
     for (const choice of shuffleQuiz([current, ...distractors])) {
         const option = document.createElement("button");
         option.type = "button";
@@ -219,7 +233,10 @@ function startQuiz() {
 }
 function finishQuiz() {
     const best = Math.max(quizRecord(), quizCorrect);
-    try { localStorage.setItem(QUIZ_KEY, String(best)); }
+    try {
+        const key = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
+        localStorage.setItem(key, String(best));
+    }
     catch { /* O placar da sessão continua disponível. */ }
     quizIndex = quizSize;
     quizImage.hidden = true;
@@ -232,6 +249,9 @@ function finishQuiz() {
     quizNext.hidden = false;
     quizNext.focus();
 }
+quizDifficulty.addEventListener("change", () => {
+    if (quizDialog.open) startQuiz();
+});
 quizButton.addEventListener("click", () => {
     startQuiz();
     if (quizCards.length >= 4) quizDialog.showModal();
