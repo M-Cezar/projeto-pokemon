@@ -60,6 +60,7 @@ function carregarCapturas() {
 }
 
 const capturados = carregarCapturas();
+const renderizarCapturas = [];
 function salvarCapturas() {
     try { localStorage.setItem(CHAVE_CAPTURAS, JSON.stringify([...capturados])); }
     catch { /* Sem armazenamento, a sessão continua jogável. */ }
@@ -75,6 +76,7 @@ for (const cartao of cartoesPokemon) {
         botao.textContent = capturado ? "Capturado" : "Marcar como capturado";
         cartao.classList.toggle("capturado", capturado);
     }
+    renderizarCapturas.push(atualizarBotao);
     botao.addEventListener("click", () => {
         if (capturados.has(numero)) capturados.delete(numero);
         else capturados.add(numero);
@@ -84,6 +86,41 @@ for (const cartao of cartoesPokemon) {
     });
     cartao.append(botao);
     atualizarBotao();
+}
+
+// Bulk actions apply only to currently visible cards, preserving other
+// captures and using the same persistence as individual capture buttons.
+if (filtros) {
+    const acoes = document.createElement("div");
+    acoes.className = "acoes-captura";
+    const capturarVisiveis = document.createElement("button");
+    capturarVisiveis.type = "button";
+    capturarVisiveis.textContent = "Capturar visíveis";
+    const limparVisiveis = document.createElement("button");
+    limparVisiveis.type = "button";
+    limparVisiveis.textContent = "Desmarcar visíveis";
+    function aplicarEmVisiveis(capturar) {
+        let alterados = 0;
+        for (const cartao of cartoesPokemon) {
+            if (cartao.hidden) continue;
+            const numero = numeroDoCartao(cartao);
+            if (capturados.has(numero) === capturar) continue;
+            if (capturar) capturados.add(numero);
+            else capturados.delete(numero);
+            alterados++;
+        }
+        if (alterados) {
+            salvarCapturas();
+            renderizarCapturas.forEach(render => render());
+        }
+        atualizarFiltros();
+    }
+    capturarVisiveis.addEventListener("click", () => aplicarEmVisiveis(true));
+    limparVisiveis.addEventListener("click", () => {
+        if (window.confirm("Desmarcar os Pokémon atualmente visíveis?")) aplicarEmVisiveis(false);
+    });
+    acoes.append(capturarVisiveis, limparVisiveis);
+    filtros.insertBefore(acoes, resultadoBusca);
 }
 
 function normalizarBusca(texto) {
@@ -109,7 +146,8 @@ function atualizarFiltros() {
         if (!cartao.hidden) visiveis += 1;
     }
 
-    progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${cartoesPokemon.length} no total.`;
+    const percentual = cartoesPokemon.length ? Math.round(capturados.size / cartoesPokemon.length * 100) : 0;
+    progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${percentual}% da coleção.`;
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
         : `${visiveis} de ${cartoesPokemon.length} Pokémon exibidos.`;
