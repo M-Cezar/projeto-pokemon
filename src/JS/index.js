@@ -113,11 +113,12 @@ atualizarFiltros();
 // Quiz local de silhuetas. Usa apenas os Pokémon já presentes no catálogo.
 const QUIZ_KEY = "pokedex:quiz-recorde:v1";
 const quizCards = cartoesPokemon.map(cartao => ({
+    number: numeroDoCartao(cartao),
     name: cartao.querySelector(".informacoes span").textContent.trim(),
     image: cartao.querySelector("img.gif").getAttribute("src"),
     types: [...cartao.querySelectorAll(".tipos .tipo")].map(tipo => tipo.textContent.trim()).filter(Boolean)
 }));
-const quizSize = Math.min(10, quizCards.length);
+let quizRoundSize = Math.min(10, quizCards.length);
 const quizButton = document.createElement("button");
 quizButton.type = "button";
 quizButton.className = "abrir-quiz";
@@ -142,6 +143,17 @@ for (const [value, label] of [["facil", "Iniciante (3 opções)"], ["normal", "T
 }
 quizDifficulty.value = "normal";
 quizDifficultyLabel.append(quizDifficulty);
+const quizCollectionLabel = document.createElement("label");
+quizCollectionLabel.className = "quiz-colecao";
+quizCollectionLabel.textContent = "Perguntas: ";
+const quizCollection = document.createElement("select");
+for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "Somente capturados"]]) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    quizCollection.append(option);
+}
+quizCollectionLabel.append(quizCollection);
 const quizScore = document.createElement("p");
 quizScore.className = "quiz-placar";
 const quizImage = document.createElement("img");
@@ -169,7 +181,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizNext, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizNext, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -180,11 +192,19 @@ const shuffleQuiz = items => {
     }
     return result;
 };
+function quizRecordKey() {
+    const base = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
+    return base + (quizCollection.value === "capturados" ? ":capturados" : "");
+}
+function quizPointsRecordKey() {
+    return QUIZ_KEY + ":pontos:" + quizDifficulty.value +
+        (quizCollection.value === "capturados" ? ":capturados" : "");
+}
 function quizRecord() {
     try {
-        const key = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
+        const key = quizRecordKey();
         const saved = Number(localStorage.getItem(key));
-        return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizSize ? saved : 0;
+        return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizRoundSize ? saved : 0;
     } catch {
         return 0;
     }
@@ -201,12 +221,12 @@ let quizHintLevel = 0;
 let quizHintsUsed = 0;
 function quizPointsRecord() {
     try {
-        const saved = Number(localStorage.getItem(QUIZ_KEY + ":pontos:" + quizDifficulty.value));
-        return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizSize * 2 ? saved : 0;
+        const saved = Number(localStorage.getItem(quizPointsRecordKey()));
+        return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizRoundSize * 2 ? saved : 0;
     } catch { return 0; }
 }
 function updateQuizScore() {
-    quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizSize) + "/" + quizSize +
+    quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizRoundSize) + "/" + quizRoundSize +
         " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
         " · Sequência: " + quizStreak + " · Recorde: " + quizRecord() +
         " · Recorde de pontos: " + quizPointsRecord();
@@ -258,7 +278,7 @@ function showQuizQuestion() {
                 ? "Acertou! " + current.name + "."
                 : "Resposta correta: " + current.name + ".";
             updateQuizScore();
-            quizNext.textContent = quizIndex + 1 === quizSize ? "Ver resultado" : "Próxima pergunta";
+            quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
             quizNext.hidden = false;
             quizNext.focus();
         });
@@ -283,7 +303,15 @@ quizHint.addEventListener("click", () => {
 });
 function startQuiz() {
     if (quizCards.length < 4) return;
-    quizQuestions = shuffleQuiz(quizCards).slice(0, quizSize);
+    const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
+    const capturedOption = quizCollection.querySelector('option[value="capturados"]');
+    capturedOption.disabled = capturedCount < 4;
+    capturedOption.textContent = "Somente capturados (" + capturedCount + ")";
+    if (capturedCount < 4 && quizCollection.value === "capturados") quizCollection.value = "todos";
+    const pool = quizCollection.value === "capturados"
+        ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
+    quizRoundSize = Math.min(10, pool.length);
+    quizQuestions = shuffleQuiz(pool).slice(0, quizRoundSize);
     quizIndex = 0;
     quizCorrect = 0;
     quizPoints = 0;
@@ -295,19 +323,18 @@ function startQuiz() {
 function finishQuiz() {
     const best = Math.max(quizRecord(), quizCorrect);
     try {
-        const key = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
-        localStorage.setItem(key, String(best));
+        localStorage.setItem(quizRecordKey(), String(best));
     }
     catch { /* O placar da sessão continua disponível. */ }
     const pointRecord = Math.max(quizPointsRecord(), quizPoints);
-    try { localStorage.setItem(QUIZ_KEY + ":pontos:" + quizDifficulty.value, String(pointRecord)); }
+    try { localStorage.setItem(quizPointsRecordKey(), String(pointRecord)); }
     catch { /* O resultado ainda aparece sem armazenamento. */ }
-    quizIndex = quizSize;
+    quizIndex = quizRoundSize;
     quizImage.hidden = true;
     quizHint.hidden = true;
     quizOptions.replaceChildren();
-    quizScore.textContent = "Resultado: " + quizCorrect + "/" + quizSize + " · Pontos: " + quizPoints + "/" + (quizSize * 2) + " · Recorde: " + best + "/" + quizSize + " · Recorde de pontos: " + pointRecord;
-    quizFeedback.textContent = quizCorrect === quizSize
+    quizScore.textContent = "Resultado: " + quizCorrect + "/" + quizRoundSize + " · Pontos: " + quizPoints + "/" + (quizRoundSize * 2) + " · Recorde: " + best + "/" + quizRoundSize + " · Recorde de pontos: " + pointRecord;
+    quizFeedback.textContent = quizCorrect === quizRoundSize
         ? "Sequência perfeita! Todos os Pokémon identificados."
         : "Partida concluída. Tente superar seu recorde.";
     quizFeedback.textContent += " Maior sequência: " + quizBestStreak + ". Dicas utilizadas: " + quizHintsUsed + ".";
@@ -318,15 +345,18 @@ function finishQuiz() {
 quizDifficulty.addEventListener("change", () => {
     if (quizDialog.open) startQuiz();
 });
+quizCollection.addEventListener("change", () => {
+    if (quizDialog.open) startQuiz();
+});
 quizButton.addEventListener("click", () => {
     startQuiz();
     if (quizCards.length >= 4) quizDialog.showModal();
 });
 quizNext.addEventListener("click", () => {
-    if (quizIndex >= quizSize) return startQuiz();
+    if (quizIndex >= quizRoundSize) return startQuiz();
     if (!quizAnswered) return;
     quizIndex++;
-    if (quizIndex >= quizSize) finishQuiz();
+    if (quizIndex >= quizRoundSize) finishQuiz();
     else showQuizQuestion();
 });
 document.addEventListener("keydown", event => {
