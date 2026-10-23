@@ -189,9 +189,27 @@ let quizQuestions = [];
 let quizIndex = 0;
 let quizCorrect = 0;
 let quizAnswered = false;
+let quizPoints = 0;
+let quizStreak = 0;
+let quizBestStreak = 0;
+let quizHintUsed = false;
+let quizHintsUsed = 0;
+function quizPointsRecord() {
+    try {
+        const saved = Number(localStorage.getItem(QUIZ_KEY + ":pontos:" + quizDifficulty.value));
+        return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizSize * 2 ? saved : 0;
+    } catch { return 0; }
+}
+function updateQuizScore() {
+    quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizSize) + "/" + quizSize +
+        " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
+        " · Sequência: " + quizStreak + " · Recorde: " + quizRecord() +
+        " · Recorde de pontos: " + quizPointsRecord();
+}
 
 function showQuizQuestion() {
     quizAnswered = false;
+    quizHintUsed = false;
     quizFeedback.textContent = "";
     quizHint.disabled = false;
     quizHint.hidden = false;
@@ -201,7 +219,7 @@ function showQuizQuestion() {
     quizImage.hidden = false;
     quizImage.src = current.image;
     quizImage.classList.remove("revelada");
-    quizScore.textContent = "Pergunta " + (quizIndex + 1) + "/" + quizSize + " · Acertos: " + quizCorrect + " · Recorde: " + quizRecord();
+    updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
     const distractors = shuffleQuiz(quizCards.filter(card => card.name !== current.name)).slice(0, choices);
     for (const choice of shuffleQuiz([current, ...distractors])) {
@@ -215,7 +233,12 @@ function showQuizQuestion() {
             quizHint.disabled = true;
             quizHint.hidden = true;
             const correct = choice.name === current.name;
-            if (correct) quizCorrect++;
+            if (correct) {
+                quizCorrect++;
+                quizStreak++;
+                quizBestStreak = Math.max(quizBestStreak, quizStreak);
+                quizPoints += quizHintUsed ? 1 : 2;
+            } else quizStreak = 0;
             quizImage.classList.add("revelada");
             for (const button of quizOptions.querySelectorAll("button")) {
                 button.disabled = true;
@@ -225,7 +248,7 @@ function showQuizQuestion() {
             quizFeedback.textContent = correct
                 ? "Acertou! " + current.name + "."
                 : "Resposta correta: " + current.name + ".";
-            quizScore.textContent = "Pergunta " + (quizIndex + 1) + "/" + quizSize + " · Acertos: " + quizCorrect + " · Recorde: " + quizRecord();
+            updateQuizScore();
             quizNext.textContent = quizIndex + 1 === quizSize ? "Ver resultado" : "Próxima pergunta";
             quizNext.hidden = false;
             quizNext.focus();
@@ -238,12 +261,18 @@ quizHint.addEventListener("click", () => {
     const name = quizQuestions[quizIndex].name;
     quizFeedback.textContent = "Dica: o nome começa com " + name.charAt(0).toUpperCase() + ".";
     quizHint.disabled = true;
+    quizHintUsed = true;
+    quizHintsUsed++;
 });
 function startQuiz() {
     if (quizCards.length < 4) return;
     quizQuestions = shuffleQuiz(quizCards).slice(0, quizSize);
     quizIndex = 0;
     quizCorrect = 0;
+    quizPoints = 0;
+    quizStreak = 0;
+    quizBestStreak = 0;
+    quizHintsUsed = 0;
     showQuizQuestion();
 }
 function finishQuiz() {
@@ -253,14 +282,18 @@ function finishQuiz() {
         localStorage.setItem(key, String(best));
     }
     catch { /* O placar da sessão continua disponível. */ }
+    const pointRecord = Math.max(quizPointsRecord(), quizPoints);
+    try { localStorage.setItem(QUIZ_KEY + ":pontos:" + quizDifficulty.value, String(pointRecord)); }
+    catch { /* O resultado ainda aparece sem armazenamento. */ }
     quizIndex = quizSize;
     quizImage.hidden = true;
     quizHint.hidden = true;
     quizOptions.replaceChildren();
-    quizScore.textContent = "Resultado: " + quizCorrect + "/" + quizSize + " · Recorde: " + best + "/" + quizSize;
+    quizScore.textContent = "Resultado: " + quizCorrect + "/" + quizSize + " · Pontos: " + quizPoints + "/" + (quizSize * 2) + " · Recorde: " + best + "/" + quizSize + " · Recorde de pontos: " + pointRecord;
     quizFeedback.textContent = quizCorrect === quizSize
         ? "Sequência perfeita! Todos os Pokémon identificados."
         : "Partida concluída. Tente superar seu recorde.";
+    quizFeedback.textContent += " Maior sequência: " + quizBestStreak + ". Dicas utilizadas: " + quizHintsUsed + ".";
     quizNext.textContent = "Jogar novamente";
     quizNext.hidden = false;
     quizNext.focus();
