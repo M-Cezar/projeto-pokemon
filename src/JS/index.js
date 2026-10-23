@@ -153,6 +153,9 @@ const quizFeedback = document.createElement("p");
 quizFeedback.className = "quiz-retorno";
 quizFeedback.setAttribute("role", "status");
 quizFeedback.setAttribute("aria-live", "polite");
+const quizKeyboardHelp = document.createElement("p");
+quizKeyboardHelp.className = "quiz-atalhos";
+quizKeyboardHelp.textContent = "Atalhos: 1 a 6 para responder · H para dica · N para avançar.";
 const quizHint = document.createElement("button");
 quizHint.type = "button";
 quizHint.className = "quiz-dica";
@@ -166,7 +169,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizScore, quizImage, quizOptions, quizFeedback, quizHint, quizNext, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizNext, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -227,11 +230,12 @@ function showQuizQuestion() {
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
     const distractors = shuffleQuiz(quizCards.filter(card => card.name !== current.name)).slice(0, choices);
-    for (const choice of shuffleQuiz([current, ...distractors])) {
+    for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
         const option = document.createElement("button");
         option.type = "button";
         option.className = "quiz-opcao";
         option.textContent = choice.name;
+        option.setAttribute("aria-label", "Opção " + (index + 1) + ": " + choice.name);
         option.addEventListener("click", () => {
             if (quizAnswered) return;
             quizAnswered = true;
@@ -324,6 +328,25 @@ quizNext.addEventListener("click", () => {
     quizIndex++;
     if (quizIndex >= quizSize) finishQuiz();
     else showQuizQuestion();
+});
+document.addEventListener("keydown", event => {
+    if (!quizDialog.open || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+    const target = event.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement) return;
+    const key = event.key.toLowerCase();
+    if (/^[1-6]$/.test(key) && !quizAnswered) {
+        const option = quizOptions.querySelectorAll("button:not(:disabled)")[Number(key) - 1];
+        if (!option) return;
+        event.preventDefault();
+        option.click();
+    } else if (key === "h" && !quizHint.disabled && !quizHint.hidden) {
+        event.preventDefault();
+        quizHint.click();
+    } else if (key === "n" && !quizNext.hidden && !quizNext.disabled) {
+        event.preventDefault();
+        quizNext.click();
+    }
 });
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => quizButton.focus());
