@@ -167,12 +167,17 @@ quizFeedback.setAttribute("role", "status");
 quizFeedback.setAttribute("aria-live", "polite");
 const quizKeyboardHelp = document.createElement("p");
 quizKeyboardHelp.className = "quiz-atalhos";
-quizKeyboardHelp.textContent = "Atalhos: 1 a 6 para responder · H para dica · N para avançar.";
+quizKeyboardHelp.textContent = "Atalhos: 1 a 6 responder · H dica · S pular · N avançar.";
 const quizHint = document.createElement("button");
 quizHint.type = "button";
 quizHint.className = "quiz-dica";
 quizHint.textContent = "Revelar dica";
 quizHint.setAttribute("aria-label", "Revelar a primeira letra do Pokémon misterioso");
+const quizSkip = document.createElement("button");
+quizSkip.type = "button";
+quizSkip.className = "quiz-pular";
+quizSkip.textContent = "Pular e revisar depois";
+quizSkip.setAttribute("aria-label", "Pular pergunta e incluir na revisão de erros");
 const quizNext = document.createElement("button");
 quizNext.type = "button";
 quizNext.className = "quiz-proximo";
@@ -186,7 +191,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizNext, quizReview, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -225,6 +230,7 @@ let quizHintUsed = false;
 let quizHintLevel = 0;
 let quizHintsUsed = 0;
 let quizMissed = [];
+let quizSkipped = 0;
 let quizIsReview = false;
 function quizPointsRecord() {
     try {
@@ -250,6 +256,8 @@ function showQuizQuestion() {
     quizHint.disabled = false;
     quizHint.hidden = false;
     quizNext.hidden = true;
+    quizSkip.hidden = false;
+    quizSkip.disabled = false;
     quizOptions.replaceChildren();
     const current = quizQuestions[quizIndex];
     quizImage.hidden = false;
@@ -267,6 +275,8 @@ function showQuizQuestion() {
         option.addEventListener("click", () => {
             if (quizAnswered) return;
             quizAnswered = true;
+            quizSkip.hidden = true;
+            quizSkip.disabled = true;
             quizHint.disabled = true;
             quizHint.hidden = true;
             const correct = choice.name === current.name;
@@ -296,6 +306,28 @@ function showQuizQuestion() {
         quizOptions.append(option);
     }
 }
+quizSkip.addEventListener("click", () => {
+    if (quizAnswered || quizIndex >= quizQuestions.length) return;
+    quizAnswered = true;
+    quizSkipped++;
+    quizStreak = 0;
+    const current = quizQuestions[quizIndex];
+    quizMissed.push(current);
+    quizImage.classList.add("revelada");
+    quizHint.disabled = true;
+    quizHint.hidden = true;
+    quizSkip.hidden = true;
+    quizSkip.disabled = true;
+    for (const button of quizOptions.querySelectorAll("button")) {
+        button.disabled = true;
+        if (button.textContent === current.name) button.classList.add("correta");
+    }
+    quizFeedback.textContent = "Pergunta pulada. Resposta: " + current.name + ". Incluída na revisão.";
+    updateQuizScore();
+    quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
+    quizNext.hidden = false;
+    quizNext.focus();
+});
 quizHint.addEventListener("click", () => {
     if (quizAnswered || quizIndex >= quizQuestions.length || quizHint.disabled) return;
     const current = quizQuestions[quizIndex];
@@ -333,6 +365,7 @@ function startQuiz(review = false) {
     quizStreak = 0;
     quizBestStreak = 0;
     quizHintsUsed = 0;
+    quizSkipped = 0;
     showQuizQuestion();
 }
 function finishQuiz() {
@@ -347,6 +380,7 @@ function finishQuiz() {
     quizIndex = quizRoundSize;
     quizImage.hidden = true;
     quizHint.hidden = true;
+    quizSkip.hidden = true;
     quizOptions.replaceChildren();
     quizScore.textContent = (quizIsReview ? "Revisão: " : "Resultado: ") + quizCorrect + "/" + quizRoundSize +
         " · Pontos: " + quizPoints + "/" + (quizRoundSize * 2) +
@@ -356,6 +390,7 @@ function finishQuiz() {
         ? "Sequência perfeita! Todos os Pokémon identificados."
         : "Partida concluída. Tente superar seu recorde.";
     quizFeedback.textContent += " Maior sequência: " + quizBestStreak + ". Dicas utilizadas: " + quizHintsUsed + ".";
+    quizFeedback.textContent += " Perguntas puladas: " + quizSkipped + ".";
     quizReview.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     quizNext.textContent = "Jogar novamente";
@@ -394,6 +429,9 @@ document.addEventListener("keydown", event => {
     } else if (key === "h" && !quizHint.disabled && !quizHint.hidden) {
         event.preventDefault();
         quizHint.click();
+    } else if (key === "s" && !quizSkip.hidden && !quizSkip.disabled) {
+        event.preventDefault();
+        quizSkip.click();
     } else if (key === "n" && !quizNext.hidden && !quizNext.disabled) {
         event.preventDefault();
         quizNext.click();
