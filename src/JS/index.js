@@ -143,6 +143,18 @@ for (const [value, label] of [["facil", "Iniciante (3 opções)"], ["normal", "T
 }
 quizDifficulty.value = "normal";
 quizDifficultyLabel.append(quizDifficulty);
+const quizLengthLabel = document.createElement("label");
+quizLengthLabel.className = "quiz-rodadas";
+quizLengthLabel.textContent = "Rodada: ";
+const quizLength = document.createElement("select");
+for (const count of [5, 10, 15]) {
+    const option = document.createElement("option");
+    option.value = String(count);
+    option.textContent = count + " perguntas";
+    quizLength.append(option);
+}
+quizLength.value = "10";
+quizLengthLabel.append(quizLength);
 const quizCollectionLabel = document.createElement("label");
 quizCollectionLabel.className = "quiz-colecao";
 quizCollectionLabel.textContent = "Perguntas: ";
@@ -191,7 +203,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -204,11 +216,13 @@ const shuffleQuiz = items => {
 };
 function quizRecordKey() {
     const base = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
-    return base + (quizCollection.value === "capturados" ? ":capturados" : "");
+    return base + (quizCollection.value === "capturados" ? ":capturados" : "") +
+        (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizPointsRecordKey() {
     return QUIZ_KEY + ":pontos:" + quizDifficulty.value +
-        (quizCollection.value === "capturados" ? ":capturados" : "");
+        (quizCollection.value === "capturados" ? ":capturados" : "") +
+        (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizRecord() {
     try {
@@ -265,7 +279,9 @@ function showQuizQuestion() {
     quizImage.classList.remove("revelada");
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
-    const distractors = shuffleQuiz(quizCards.filter(card => card.name !== current.name)).slice(0, choices);
+    const choicePool = quizCollection.value === "capturados"
+        ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
+    const distractors = shuffleQuiz(choicePool.filter(card => card.number !== current.number)).slice(0, choices);
     for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
         const option = document.createElement("button");
         option.type = "button";
@@ -355,7 +371,8 @@ function startQuiz(review = false) {
         ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
     const reviewPool = review ? [...quizMissed] : [];
     quizIsReview = review && reviewPool.length > 0;
-    quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, 10);
+    const requested = Number(quizLength.value) || 10;
+    quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, requested);
     quizRoundSize = quizQuestions.length;
     quizMissed = [];
     quizReview.hidden = true;
@@ -397,6 +414,9 @@ function finishQuiz() {
     quizNext.hidden = false;
     quizNext.focus();
 }
+quizLength.addEventListener("change", () => {
+    if (quizDialog.open) startQuiz();
+});
 quizDifficulty.addEventListener("change", () => {
     if (quizDialog.open) startQuiz();
 });
