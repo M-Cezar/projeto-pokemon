@@ -177,11 +177,16 @@ const quizNext = document.createElement("button");
 quizNext.type = "button";
 quizNext.className = "quiz-proximo";
 quizNext.textContent = "Próxima pergunta";
+const quizReview = document.createElement("button");
+quizReview.type = "button";
+quizReview.className = "quiz-revisao";
+quizReview.textContent = "Revisar erros";
+quizReview.hidden = true;
 const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizNext, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizNext, quizReview, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -219,6 +224,8 @@ let quizBestStreak = 0;
 let quizHintUsed = false;
 let quizHintLevel = 0;
 let quizHintsUsed = 0;
+let quizMissed = [];
+let quizIsReview = false;
 function quizPointsRecord() {
     try {
         const saved = Number(localStorage.getItem(quizPointsRecordKey()));
@@ -228,8 +235,9 @@ function quizPointsRecord() {
 function updateQuizScore() {
     quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizRoundSize) + "/" + quizRoundSize +
         " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
-        " · Sequência: " + quizStreak + " · Recorde: " + quizRecord() +
-        " · Recorde de pontos: " + quizPointsRecord();
+        " · Sequência: " + quizStreak +
+        (quizIsReview ? " · Revisão de erros" :
+            " · Recorde: " + quizRecord() + " · Recorde de pontos: " + quizPointsRecord());
 }
 
 function showQuizQuestion() {
@@ -267,7 +275,10 @@ function showQuizQuestion() {
                 quizStreak++;
                 quizBestStreak = Math.max(quizBestStreak, quizStreak);
                 quizPoints += Math.max(0, 2 - quizHintLevel);
-            } else quizStreak = 0;
+            } else {
+                quizStreak = 0;
+                quizMissed.push(current);
+            }
             quizImage.classList.add("revelada");
             for (const button of quizOptions.querySelectorAll("button")) {
                 button.disabled = true;
@@ -301,7 +312,7 @@ quizHint.addEventListener("click", () => {
     quizHintUsed = true;
     quizHintsUsed++;
 });
-function startQuiz() {
+function startQuiz(review = false) {
     if (quizCards.length < 4) return;
     const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
     const capturedOption = quizCollection.querySelector('option[value="capturados"]');
@@ -310,8 +321,12 @@ function startQuiz() {
     if (capturedCount < 4 && quizCollection.value === "capturados") quizCollection.value = "todos";
     const pool = quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
-    quizRoundSize = Math.min(10, pool.length);
-    quizQuestions = shuffleQuiz(pool).slice(0, quizRoundSize);
+    const reviewPool = review ? [...quizMissed] : [];
+    quizIsReview = review && reviewPool.length > 0;
+    quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, 10);
+    quizRoundSize = quizQuestions.length;
+    quizMissed = [];
+    quizReview.hidden = true;
     quizIndex = 0;
     quizCorrect = 0;
     quizPoints = 0;
@@ -321,23 +336,28 @@ function startQuiz() {
     showQuizQuestion();
 }
 function finishQuiz() {
-    const best = Math.max(quizRecord(), quizCorrect);
-    try {
-        localStorage.setItem(quizRecordKey(), String(best));
+    const best = quizIsReview ? null : Math.max(quizRecord(), quizCorrect);
+    const pointRecord = quizIsReview ? null : Math.max(quizPointsRecord(), quizPoints);
+    if (!quizIsReview) {
+        try { localStorage.setItem(quizRecordKey(), String(best)); }
+        catch { /* O placar da sessão continua disponível. */ }
+        try { localStorage.setItem(quizPointsRecordKey(), String(pointRecord)); }
+        catch { /* O resultado ainda aparece sem armazenamento. */ }
     }
-    catch { /* O placar da sessão continua disponível. */ }
-    const pointRecord = Math.max(quizPointsRecord(), quizPoints);
-    try { localStorage.setItem(quizPointsRecordKey(), String(pointRecord)); }
-    catch { /* O resultado ainda aparece sem armazenamento. */ }
     quizIndex = quizRoundSize;
     quizImage.hidden = true;
     quizHint.hidden = true;
     quizOptions.replaceChildren();
-    quizScore.textContent = "Resultado: " + quizCorrect + "/" + quizRoundSize + " · Pontos: " + quizPoints + "/" + (quizRoundSize * 2) + " · Recorde: " + best + "/" + quizRoundSize + " · Recorde de pontos: " + pointRecord;
+    quizScore.textContent = (quizIsReview ? "Revisão: " : "Resultado: ") + quizCorrect + "/" + quizRoundSize +
+        " · Pontos: " + quizPoints + "/" + (quizRoundSize * 2) +
+        (quizIsReview ? " · Recordes originais preservados" :
+            " · Recorde: " + best + "/" + quizRoundSize + " · Recorde de pontos: " + pointRecord);
     quizFeedback.textContent = quizCorrect === quizRoundSize
         ? "Sequência perfeita! Todos os Pokémon identificados."
         : "Partida concluída. Tente superar seu recorde.";
     quizFeedback.textContent += " Maior sequência: " + quizBestStreak + ". Dicas utilizadas: " + quizHintsUsed + ".";
+    quizReview.hidden = quizMissed.length === 0;
+    quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     quizNext.textContent = "Jogar novamente";
     quizNext.hidden = false;
     quizNext.focus();
@@ -352,6 +372,7 @@ quizButton.addEventListener("click", () => {
     startQuiz();
     if (quizCards.length >= 4) quizDialog.showModal();
 });
+quizReview.addEventListener("click", () => startQuiz(true));
 quizNext.addEventListener("click", () => {
     if (quizIndex >= quizRoundSize) return startQuiz();
     if (!quizAnswered) return;
