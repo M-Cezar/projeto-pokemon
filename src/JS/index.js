@@ -248,7 +248,31 @@ if (filtros) {
     limparVisiveis.addEventListener("click", () => {
         if (window.confirm("Desmarcar os Pokémon atualmente visíveis?")) aplicarEmVisiveis(false);
     });
-    acoes.append(capturarVisiveis, limparVisiveis);
+    const descobrirPendente = document.createElement("button");
+    descobrirPendente.type = "button";
+    descobrirPendente.textContent = "Descobrir um pendente";
+    descobrirPendente.setAttribute("aria-label", "Encontrar um Pokémon ainda não capturado");
+    descobrirPendente.addEventListener("click", () => {
+        const pendentes = cartoesPokemon.filter(cartao => !capturados.has(numeroDoCartao(cartao)));
+        if (!pendentes.length) {
+            resultadoBusca.textContent = "Coleção completa: todos os Pokémon foram capturados.";
+            return;
+        }
+        // Clear only display filters; never alter captured species or favorites.
+        campoBusca.value = "";
+        seletorTipo.value = "";
+        filtroCapturados.checked = false;
+        filtroPendentes.checked = false;
+        filtroFavoritos.checked = false;
+        atualizarFiltros();
+        const escolhido = pendentes[Math.floor(Math.random() * pendentes.length)];
+        escolhido.setAttribute("tabindex", "-1");
+        escolhido.scrollIntoView({behavior: "smooth", block: "center"});
+        escolhido.focus({preventScroll: true});
+        const nome = escolhido.querySelector(".informacoes span")?.textContent?.trim() || "Pokémon";
+        resultadoBusca.textContent = "Pendente sugerido: " + nome + ".";
+    });
+    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente);
     filtros.insertBefore(acoes, resultadoBusca);
 }
 
