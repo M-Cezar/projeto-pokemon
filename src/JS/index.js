@@ -83,10 +83,70 @@ function carregarFavoritos() {
 }
 const capturados = carregarCapturas();
 const favoritos = carregarFavoritos();
+const CHAVE_ORDEM = "pokedex:ordenacao:v1";
+const modosOrdenacao = new Set(["numero", "nome", "pendentes", "favoritos"]);
+const seletorOrdem = document.createElement("select");
+seletorOrdem.id = "ordenar-pokemon";
+seletorOrdem.setAttribute("aria-label", "Ordenar a coleção de Pokémon");
+for (const [valor, texto] of [
+    ["numero", "Número da Pokédex"],
+    ["nome", "Nome A–Z"],
+    ["pendentes", "Pendentes primeiro"],
+    ["favoritos", "Favoritos primeiro"]
+]) {
+    const opcao = document.createElement("option");
+    opcao.value = valor;
+    opcao.textContent = texto;
+    seletorOrdem.append(opcao);
+}
+try {
+    const salvo = localStorage.getItem(CHAVE_ORDEM);
+    if (modosOrdenacao.has(salvo)) seletorOrdem.value = salvo;
+} catch { /* Ordenação padrão disponível sem armazenamento. */ }
+if (filtros) {
+    const rotuloOrdem = document.createElement("label");
+    rotuloOrdem.className = "capturados-filtro";
+    rotuloOrdem.append(document.createTextNode("Ordenar: "), seletorOrdem);
+    filtros.insertBefore(rotuloOrdem, resultadoBusca);
+}
+seletorOrdem.addEventListener("change", () => {
+    try { localStorage.setItem(CHAVE_ORDEM, seletorOrdem.value); }
+    catch { /* A ordenação funciona nesta sessão. */ }
+    atualizarFiltros();
+});
+function ordenarCartoes() {
+    const lista = document.querySelector(".listagem-pokemon");
+    if (!lista) return;
+    const modo = seletorOrdem.value;
+    const ordenados = [...cartoesPokemon].sort((a,b) => {
+        const numeroA = numeroDoCartao(a), numeroB = numeroDoCartao(b);
+        if (modo === "nome") {
+            return normalizarBusca(a.querySelector(".informacoes span").textContent)
+                .localeCompare(normalizarBusca(b.querySelector(".informacoes span").textContent), "pt");
+        }
+        if (modo === "pendentes") {
+            const diff = Number(capturados.has(numeroA)) - Number(capturados.has(numeroB));
+            if (diff) return diff;
+        }
+        if (modo === "favoritos") {
+            const diff = Number(favoritos.has(numeroB)) - Number(favoritos.has(numeroA));
+            if (diff) return diff;
+        }
+        return cartoesPokemon.indexOf(a) - cartoesPokemon.indexOf(b);
+    });
+    lista.append(...ordenados);
+}
+
 const renderizarCapturas = [];
 const renderizarFavoritos = [];
 // Keep separate browser tabs in sync without replacing the current page.
 window.addEventListener("storage", event => {
+    if (event.key === CHAVE_ORDEM || event.key === null) {
+        let modo = "numero";
+        try { modo = localStorage.getItem(CHAVE_ORDEM) || "numero"; } catch {}
+        seletorOrdem.value = modosOrdenacao.has(modo) ? modo : "numero";
+        atualizarFiltros();
+    }
     if (event.key === CHAVE_TEMA) {
         aplicarTema(event.newValue === "escuro");
     }
@@ -280,6 +340,7 @@ function normalizarBusca(texto) {
 }
 
 function atualizarFiltros() {
+    ordenarCartoes();
     const termo = normalizarBusca(campoBusca.value);
     const tipo = seletorTipo.value;
     let visiveis = 0;
