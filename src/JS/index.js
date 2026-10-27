@@ -49,6 +49,17 @@ if (!progressoCaptura.id && filtros) {
     filtros.insertBefore(progressoCaptura, resultadoBusca);
 }
 const CHAVE_CAPTURAS = "pokedex:capturados:v1";
+const CHAVE_FAVORITOS = "pokedex:favoritos:v1";
+const filtroFavoritos = document.getElementById("filtrar-favoritos") ||
+    Object.assign(document.createElement("input"), {type: "checkbox"});
+if (!filtroFavoritos.id && filtros) {
+    filtroFavoritos.id = "filtrar-favoritos";
+    const rotulo = document.createElement("label");
+    rotulo.className = "capturados-filtro";
+    rotulo.htmlFor = filtroFavoritos.id;
+    rotulo.append(filtroFavoritos, document.createTextNode(" Somente favoritos"));
+    filtros.insertBefore(rotulo, resultadoBusca);
+}
 const numeroDoCartao = cartao => cartao.querySelectorAll(".informacoes span")[1].textContent.trim();
 const numerosDisponiveis = new Set(cartoesPokemon.map(numeroDoCartao));
 
@@ -62,8 +73,18 @@ function carregarCapturas() {
     }
 }
 
+function carregarFavoritos() {
+    try {
+        const salvos = JSON.parse(localStorage.getItem(CHAVE_FAVORITOS) || "[]");
+        if (!Array.isArray(salvos)) return new Set();
+        return new Set(salvos.filter(numero =>
+            typeof numero === "string" && numerosDisponiveis.has(numero)));
+    } catch { return new Set(); }
+}
 const capturados = carregarCapturas();
+const favoritos = carregarFavoritos();
 const renderizarCapturas = [];
+const renderizarFavoritos = [];
 // Keep separate browser tabs in sync without replacing the current page.
 window.addEventListener("storage", event => {
     if (event.key === CHAVE_TEMA) {
@@ -76,10 +97,21 @@ window.addEventListener("storage", event => {
         renderizarCapturas.forEach(render => render());
         atualizarFiltros();
     }
+    if (event.key === CHAVE_FAVORITOS || event.key === null) {
+        const atualizados = carregarFavoritos();
+        favoritos.clear();
+        for (const numero of atualizados) favoritos.add(numero);
+        renderizarFavoritos.forEach(render => render());
+        atualizarFiltros();
+    }
 });
 function salvarCapturas() {
     try { localStorage.setItem(CHAVE_CAPTURAS, JSON.stringify([...capturados])); }
     catch { /* Sem armazenamento, a sessão continua jogável. */ }
+}
+function salvarFavoritos() {
+    try { localStorage.setItem(CHAVE_FAVORITOS, JSON.stringify([...favoritos])); }
+    catch { /* Favoritos continuam disponíveis durante a sessão. */ }
 }
 for (const cartao of cartoesPokemon) {
     const numero = numeroDoCartao(cartao);
@@ -100,8 +132,29 @@ for (const cartao of cartoesPokemon) {
         atualizarBotao();
         atualizarFiltros();
     });
-    cartao.append(botao);
+    const botaoFavorito = document.createElement("button");
+    botaoFavorito.type = "button";
+    botaoFavorito.className = "favoritar-pokemon";
+    function atualizarFavorito() {
+        const favorito = favoritos.has(numero);
+        botaoFavorito.setAttribute("aria-pressed", String(favorito));
+        botaoFavorito.setAttribute("aria-label",
+            (favorito ? "Remover dos favoritos: " : "Adicionar aos favoritos: ") +
+            cartao.querySelector(".informacoes span").textContent.trim());
+        botaoFavorito.textContent = favorito ? "★ Favorito" : "☆ Favoritar";
+        cartao.classList.toggle("favorito", favorito);
+    }
+    renderizarFavoritos.push(atualizarFavorito);
+    botaoFavorito.addEventListener("click", () => {
+        if (favoritos.has(numero)) favoritos.delete(numero);
+        else favoritos.add(numero);
+        salvarFavoritos();
+        atualizarFavorito();
+        atualizarFiltros();
+    });
+    cartao.append(botao, botaoFavorito);
     atualizarBotao();
+    atualizarFavorito();
 }
 
 // Bulk actions apply only to currently visible cards, preserving other
@@ -161,9 +214,10 @@ if (filtros) {
 
     exportar.addEventListener("click", () => {
         const conteudo = JSON.stringify({
-            versao: 1,
+            versao: 2,
             exportadoEm: new Date().toISOString(),
-            capturados: [...capturados].sort()
+            capturados: [...capturados].sort(),
+            favoritos: [...favoritos].sort()
         }, null, 2);
         const url = URL.createObjectURL(new Blob([conteudo], {type: "application/json;charset=utf-8"}));
         const link = document.createElement("a");
@@ -184,9 +238,12 @@ if (filtros) {
                 throw new Error("Arquivo muito grande para um backup de capturas.");
             }
             const dados = JSON.parse(await selecionado.text());
-            if (!dados || dados.versao !== 1 || !Array.isArray(dados.capturados) ||
+            if (!dados || ![1, 2].includes(dados.versao) || !Array.isArray(dados.capturados) ||
                 dados.capturados.length > 2000 ||
-                !dados.capturados.every(numero => typeof numero === "string" && numero.length <= 12)) {
+                !dados.capturados.every(numero => typeof numero === "string" && numero.length <= 12) ||
+                (dados.versao === 2 && (!Array.isArray(dados.favoritos) ||
+                    dados.favoritos.length > 2000 ||
+                    !dados.favoritos.every(numero => typeof numero === "string" && numero.length <= 12)))) {
                 throw new Error("O arquivo não é um backup de capturas válido.");
             }
             let novas = 0;
@@ -196,11 +253,18 @@ if (filtros) {
                 novas++;
             }
             if (novas) salvarCapturas();
+            let novosFavoritos = 0;
+            for (const numero of dados.versao === 2 ? dados.favoritos : []) {
+                if (!numerosDisponiveis.has(numero) || favoritos.has(numero)) continue;
+                favoritos.add(numero);
+                novosFavoritos++;
+            }
+            if (novosFavoritos) salvarFavoritos();
             renderizarCapturas.forEach(render => render());
+            renderizarFavoritos.forEach(render => render());
             atualizarFiltros();
-            status.textContent = novas ?
-                novas + " novas capturas mescladas. Suas capturas anteriores foram preservadas." :
-                "Nenhuma captura nova encontrada no backup.";
+            status.textContent = novas + " novas capturas e " + novosFavoritos +
+                " favoritos mesclados. Os dados anteriores foram preservados.";
         } catch (erro) {
             status.textContent = erro instanceof Error ? erro.message : "Não foi possível ler o backup.";
         } finally {
@@ -230,12 +294,13 @@ function atualizarFiltros() {
         const capturado = capturados.has(numeroDoCartao(cartao));
         const combinaCaptura = (!filtroCapturados.checked || capturado) &&
             (!filtroPendentes.checked || !capturado);
-        cartao.hidden = !(combinaBusca && combinaTipo && combinaCaptura);
+        const combinaFavorito = !filtroFavoritos.checked || favoritos.has(numeroDoCartao(cartao));
+        cartao.hidden = !(combinaBusca && combinaTipo && combinaCaptura && combinaFavorito);
         if (!cartao.hidden) visiveis += 1;
     }
 
     const percentual = cartoesPokemon.length ? Math.round(capturados.size / cartoesPokemon.length * 100) : 0;
-    progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${percentual}% da coleção.`;
+    progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${percentual}% da coleção · ${favoritos.size} favoritos.`;
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
         : `${visiveis} de ${cartoesPokemon.length} Pokémon exibidos.`;
@@ -251,4 +316,5 @@ filtroPendentes.addEventListener("change", () => {
     if (filtroPendentes.checked) filtroCapturados.checked = false;
     atualizarFiltros();
 });
+filtroFavoritos.addEventListener("change", atualizarFiltros);
 atualizarFiltros();
