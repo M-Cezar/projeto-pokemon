@@ -2,17 +2,20 @@ const botaoAlterarTema = document.getElementById("botao-alterar-tema");
 const body = document.querySelector("body");
 const imagembBotaoTrocaDeTema = document.querySelector(".imagem-botao")
 
+const CHAVE_TEMA = "pokedex:tema:v1";
+function aplicarTema(escuro) {
+    body.classList.toggle("modo-escuro", escuro);
+    botaoAlterarTema.setAttribute("aria-pressed", String(escuro));
+    imagembBotaoTrocaDeTema.setAttribute("src",
+        escuro ? "./src/imagens/moon.png" : "./src/imagens/sun.png");
+}
+try { aplicarTema(localStorage.getItem(CHAVE_TEMA) === "escuro"); }
+catch { aplicarTema(body.classList.contains("modo-escuro")); }
 botaoAlterarTema.addEventListener("click", () => {
-    const modoEscuroEstaAtivo = body.classList.contains("modo-escuro");
-    
-    body.classList.toggle("modo-escuro");
-    botaoAlterarTema.setAttribute("aria-pressed", String(!modoEscuroEstaAtivo));
-
-    if (modoEscuroEstaAtivo) {
-        imagembBotaoTrocaDeTema.setAttribute("src", "./src/imagens/sun.png")
-    } else {
-        imagembBotaoTrocaDeTema.setAttribute("src", "./src/imagens/moon.png")
-    }
+    const escuro = !body.classList.contains("modo-escuro");
+    aplicarTema(escuro);
+    try { localStorage.setItem(CHAVE_TEMA, escuro ? "escuro" : "claro"); }
+    catch { /* O tema continua disponível nesta sessão. */ }
 });
 
 const campoBusca = document.getElementById("buscar-pokemon");
@@ -61,6 +64,19 @@ function carregarCapturas() {
 
 const capturados = carregarCapturas();
 const renderizarCapturas = [];
+// Keep separate browser tabs in sync without replacing the current page.
+window.addEventListener("storage", event => {
+    if (event.key === CHAVE_TEMA) {
+        aplicarTema(event.newValue === "escuro");
+    }
+    if (event.key === CHAVE_CAPTURAS || event.key === null) {
+        const atualizados = carregarCapturas();
+        capturados.clear();
+        for (const numero of atualizados) capturados.add(numero);
+        renderizarCapturas.forEach(render => render());
+        atualizarFiltros();
+    }
+});
 function salvarCapturas() {
     try { localStorage.setItem(CHAVE_CAPTURAS, JSON.stringify([...capturados])); }
     catch { /* Sem armazenamento, a sessão continua jogável. */ }
