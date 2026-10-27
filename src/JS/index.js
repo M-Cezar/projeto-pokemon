@@ -83,6 +83,10 @@ function carregarFavoritos() {
 }
 const capturados = carregarCapturas();
 const favoritos = carregarFavoritos();
+const resumoTipos = document.createElement("details");
+resumoTipos.className = "resumo-tipos";
+if (filtros) filtros.insertBefore(resumoTipos, resultadoBusca);
+
 const CHAVE_ORDEM = "pokedex:ordenacao:v1";
 const modosOrdenacao = new Set(["numero", "nome", "pendentes", "favoritos"]);
 const seletorOrdem = document.createElement("select");
@@ -363,6 +367,38 @@ function normalizarBusca(texto) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
+// Species with two types contribute to both categories; no save data changes.
+function atualizarResumoTipos() {
+    if (!filtros) return;
+    const tipos = new Map();
+    for (const cartao of cartoesPokemon) {
+        const capturado = capturados.has(numeroDoCartao(cartao));
+        for (const elemento of cartao.querySelectorAll(".tipos .tipo")) {
+            const nome = elemento.textContent.trim();
+            if (!nome) continue;
+            const linha = tipos.get(nome) || {total: 0, capturados: 0};
+            linha.total += 1;
+            if (capturado) linha.capturados += 1;
+            tipos.set(nome, linha);
+        }
+    }
+    const titulo = document.createElement("summary");
+    titulo.textContent = "Progresso de captura por tipo (" + tipos.size + ")";
+    const lista = document.createElement("ul");
+    for (const [nome, dados] of [...tipos].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))) {
+        const item = document.createElement("li");
+        const rotulo = document.createElement("span");
+        rotulo.textContent = nome + ": " + dados.capturados + "/" + dados.total;
+        const barra = document.createElement("progress");
+        barra.max = dados.total;
+        barra.value = dados.capturados;
+        barra.setAttribute("aria-label", "Capturas do tipo " + nome);
+        item.append(rotulo, barra);
+        lista.append(item);
+    }
+    resumoTipos.replaceChildren(titulo, lista);
+}
+
 function atualizarFiltros() {
     ordenarCartoes();
     const termo = normalizarBusca(campoBusca.value);
@@ -385,6 +421,7 @@ function atualizarFiltros() {
     }
 
     const percentual = cartoesPokemon.length ? Math.round(capturados.size / cartoesPokemon.length * 100) : 0;
+    atualizarResumoTipos();
     progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${percentual}% da coleção · ${favoritos.size} favoritos.`;
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
