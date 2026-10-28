@@ -448,6 +448,32 @@ if (filtros) {
         window.setTimeout(() => URL.revokeObjectURL(url), 1200);
         status.textContent = capturados.size + " capturas exportadas para arquivo local.";
     });
+    // Read-only spreadsheet export; every catalogue species is included.
+    const exportarCsv = document.createElement("button");
+    exportarCsv.type = "button";
+    exportarCsv.textContent = "Exportar coleção CSV";
+    exportarCsv.addEventListener("click", () => {
+        const cell = value => {
+            let text = String(value ?? "").replace(/[\r\n\u2028\u2029]+/g, " ");
+            if (/^\s*[=+@-]/.test(text)) text = "'" + text;
+            return '"' + text.replace(/"/g, '""') + '"';
+        };
+        const rows = [["Número", "Pokémon", "Tipos", "Capturado", "Favorito"]];
+        for (const cartao of cartoesPokemon) {
+            const numero = numeroDoCartao(cartao);
+            rows.push([numero, cartao.querySelector(".informacoes span")?.textContent?.trim() || "",
+                [...cartao.querySelectorAll(".tipos .tipo")].map(tipo => tipo.textContent.trim()).join(" / "),
+                capturados.has(numero) ? "Sim" : "Não", favoritos.has(numero) ? "Sim" : "Não"]);
+        }
+        const csv = "\ufeff" + rows.map(row => row.map(cell).join(";")).join("\r\n");
+        const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "pokedex-colecao.csv";
+        document.body.append(link);link.click();link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+        status.textContent = cartoesPokemon.length + " Pokémon exportados em CSV sem alterar capturas.";
+    });
     importar.addEventListener("click", () => arquivo.click());
     arquivo.addEventListener("change", async () => {
         const selecionado = arquivo.files?.[0];
@@ -495,7 +521,7 @@ if (filtros) {
             arquivo.value = "";
         }
     });
-    transferir.append(exportar, importar, arquivo, status);
+    transferir.append(exportar, exportarCsv, importar, arquivo, status);
     filtros.insertBefore(transferir, resultadoBusca);
 }
 
