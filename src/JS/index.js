@@ -215,6 +215,35 @@ function desfazerAlteracao() {
     if (botaoDesfazer) botaoDesfazer.disabled = true;
     atualizarFiltros();
 }
+// A deliberate, single-step capture action using the currently visible order.
+// Never alters hidden Pokémon; the existing undo snapshot restores the change.
+const capturarProximoVisivel = document.createElement("button");
+capturarProximoVisivel.type = "button";
+capturarProximoVisivel.id = "capturar-proximo-visivel";
+capturarProximoVisivel.textContent = "Capturar próximo pendente visível";
+capturarProximoVisivel.setAttribute("aria-label", "Marcar o próximo Pokémon pendente da lista filtrada");
+const capturaRapidaStatus = document.createElement("span");
+capturaRapidaStatus.setAttribute("role", "status");
+capturaRapidaStatus.setAttribute("aria-live", "polite");
+if (filtros) filtros.insertBefore(capturarProximoVisivel, resultadoBusca);
+if (filtros) filtros.insertBefore(capturaRapidaStatus, resultadoBusca);
+capturarProximoVisivel.addEventListener("click", () => {
+    const proximo = [...document.querySelectorAll(".listagem-pokemon > .cartao-pokemon")]
+        .find(cartao => !cartao.hidden && !capturados.has(numeroDoCartao(cartao)));
+    if (!proximo) {
+        capturaRapidaStatus.textContent = "Nenhum Pokémon pendente nos filtros atuais.";
+        return;
+    }
+    const numero = numeroDoCartao(proximo);
+    registrarDesfazer();
+    capturados.add(numero);
+    salvarCapturas();
+    renderizarCapturas.forEach(render => render());
+    atualizarFiltros();
+    const nome = proximo.querySelector(".informacoes span")?.textContent?.trim() || numero;
+    capturaRapidaStatus.textContent = nome + " capturado. A ação pode ser desfeita.";
+});
+
 for (const cartao of cartoesPokemon) {
     const numero = numeroDoCartao(cartao);
     const botao = document.createElement("button");
