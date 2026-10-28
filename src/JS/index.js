@@ -580,8 +580,18 @@ function atualizarMedalhasPokedex() {
         {nome: "Explorador da região", atual: capturados.size, alvo: Math.min(12, total)},
         {nome: "Colecionador dedicado", atual: capturados.size, alvo: Math.min(24, total)},
         {nome: "Pokédex completa", atual: capturados.size, alvo: total},
+        {nome: "Metade da coleção", atual: capturados.size, alvo: Math.max(1, Math.ceil(total / 2))},
+        {nome: "Três quartos da coleção", atual: capturados.size, alvo: Math.max(1, Math.ceil(total * 3 / 4))},
         {nome: "Trio de favoritos", atual: favoritos.size, alvo: Math.min(3, total)},
-        {nome: "Mestre dos tipos", atual: tiposCompletos, alvo: tipos.size}
+        {nome: "Mestre dos tipos", atual: tiposCompletos, alvo: tipos.size},
+        // Every known type has its own progression medal, including dual types.
+        // The progress is derived from existing capture IDs, not a new save.
+        ...[...tipos].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+            .map(([nome, dados]) => ({
+                nome: "Especialista em " + nome,
+                atual: dados.capturados,
+                alvo: dados.total
+            }))
     ].filter(meta => meta.alvo > 0);
     const conquistadas = metas.filter(meta => meta.atual >= meta.alvo).length;
     const titulo = document.createElement("summary");
