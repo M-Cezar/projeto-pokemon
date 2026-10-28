@@ -614,6 +614,7 @@ function atualizarMedalhasPokedex() {
 }
 
 let atualizarDesafioDiario = () => {};
+let atualizarDesafioSemanal = () => {};
 function atualizarFiltros() {
     ordenarCartoes();
     const termo = normalizarBusca(campoBusca.value);
@@ -643,6 +644,7 @@ function atualizarFiltros() {
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
         : `${visiveis} de ${cartoesPokemon.length} Pokémon exibidos.`;
     atualizarDesafioDiario();
+    atualizarDesafioSemanal();
 }
 
 campoBusca.addEventListener("input", atualizarFiltros);
@@ -875,6 +877,65 @@ if (filtros && cartoesPokemon.length) {
             " dia(s) registrados · sequência de " + streak + " dia(s)" +
             (completedDays.has(date) ? "." : " até ontem.") +
             " Histórico local, sem recompensas automáticas.";
+        for (const {cartao, button} of buttons) {
+            const name = cartao.querySelector(".informacoes span")?.textContent?.trim() ||
+                numeroDoCartao(cartao);
+            button.textContent = (capturados.has(numeroDoCartao(cartao)) ? "Concluído: " : "Pendente: ") + name;
+        }
+    };
+}
+// Weekly challenge uses the Monday of the current Brasilia week as its seed.
+// It does not mutate capture data, assign rewards, or use network services.
+if (filtros && cartoesPokemon.length) {
+    const localDay = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(new Date());
+    const monday = new Date(localDay + "T12:00:00Z");
+    monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
+    const week = monday.toISOString().slice(0, 10);
+    let seed = 2166136261;
+    for (const char of week) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619) >>> 0;
+    const pool = [...cartoesPokemon].sort((a, b) =>
+        numeroDoCartao(a).localeCompare(numeroDoCartao(b), "pt-BR", {numeric: true}));
+    for (let i = pool.length - 1; i > 0; i--) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        const j = seed % (i + 1);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const chosen = pool.slice(0, Math.min(5, pool.length));
+    const panel = document.createElement("details");
+    panel.className = "resumo-tipos desafio-semanal";
+    const title = document.createElement("summary");
+    title.textContent = "Desafio semanal · semana de " + week;
+    const status = document.createElement("p");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    const list = document.createElement("ol");
+    const buttons = chosen.map(cartao => {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.addEventListener("click", () => {
+            campoBusca.value = "";
+            seletorTipo.value = "";
+            filtroCapturados.checked = false;
+            filtroPendentes.checked = false;
+            filtroFavoritos.checked = false;
+            atualizarFiltros();
+            cartao.tabIndex = -1;
+            cartao.scrollIntoView({behavior: "smooth", block: "center"});
+            cartao.focus({preventScroll: true});
+        });
+        item.append(button);
+        list.append(item);
+        return {cartao, button};
+    });
+    panel.append(title, status, list);
+    filtros.insertBefore(panel, resultadoBusca);
+    atualizarDesafioSemanal = () => {
+        const done = chosen.filter(cartao => capturados.has(numeroDoCartao(cartao))).length;
+        status.textContent = done + "/" + chosen.length +
+            " espécies capturadas nesta semana. Progresso local, sem recompensas automáticas.";
         for (const {cartao, button} of buttons) {
             const name = cartao.querySelector(".informacoes span")?.textContent?.trim() ||
                 numeroDoCartao(cartao);
