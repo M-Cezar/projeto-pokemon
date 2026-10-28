@@ -88,13 +88,15 @@ resumoTipos.className = "resumo-tipos";
 if (filtros) filtros.insertBefore(resumoTipos, resultadoBusca);
 
 const CHAVE_ORDEM = "pokedex:ordenacao:v1";
-const modosOrdenacao = new Set(["numero", "nome", "pendentes", "favoritos"]);
+const modosOrdenacao = new Set(["numero", "nome", "tipo", "capturados", "pendentes", "favoritos"]);
 const seletorOrdem = document.createElement("select");
 seletorOrdem.id = "ordenar-pokemon";
 seletorOrdem.setAttribute("aria-label", "Ordenar a coleção de Pokémon");
 for (const [valor, texto] of [
     ["numero", "Número da Pokédex"],
     ["nome", "Nome A–Z"],
+    ["tipo", "Tipo primário A–Z"],
+    ["capturados", "Capturados primeiro"],
     ["pendentes", "Pendentes primeiro"],
     ["favoritos", "Favoritos primeiro"]
 ]) {
@@ -127,6 +129,16 @@ function ordenarCartoes() {
         if (modo === "nome") {
             return normalizarBusca(a.querySelector(".informacoes span").textContent)
                 .localeCompare(normalizarBusca(b.querySelector(".informacoes span").textContent), "pt");
+        }
+        if (modo === "tipo") {
+            const tipoA = a.querySelector(".tipos .tipo")?.textContent?.trim() || "";
+            const tipoB = b.querySelector(".tipos .tipo")?.textContent?.trim() || "";
+            const comparacao = normalizarBusca(tipoA).localeCompare(normalizarBusca(tipoB), "pt");
+            if (comparacao) return comparacao;
+        }
+        if (modo === "capturados") {
+            const diff = Number(capturados.has(numeroB)) - Number(capturados.has(numeroA));
+            if (diff) return diff;
         }
         if (modo === "pendentes") {
             const diff = Number(capturados.has(numeroA)) - Number(capturados.has(numeroB));
