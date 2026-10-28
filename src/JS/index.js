@@ -86,6 +86,9 @@ const favoritos = carregarFavoritos();
 const resumoTipos = document.createElement("details");
 resumoTipos.className = "resumo-tipos";
 if (filtros) filtros.insertBefore(resumoTipos, resultadoBusca);
+const medalhasPokedex = document.createElement("details");
+medalhasPokedex.className = "resumo-tipos medalhas-pokedex";
+if (filtros) filtros.insertBefore(medalhasPokedex, resumoTipos);
 
 const CHAVE_ORDEM = "pokedex:ordenacao:v1";
 const modosOrdenacao = new Set(["numero", "nome", "tipo", "capturados", "pendentes", "favoritos"]);
@@ -501,8 +504,7 @@ function normalizarBusca(texto) {
 }
 
 // Species with two types contribute to both categories; no save data changes.
-function atualizarResumoTipos() {
-    if (!filtros) return;
+function capturasPorTipo() {
     const tipos = new Map();
     for (const cartao of cartoesPokemon) {
         const capturado = capturados.has(numeroDoCartao(cartao));
@@ -515,6 +517,12 @@ function atualizarResumoTipos() {
             tipos.set(nome, linha);
         }
     }
+    return tipos;
+}
+
+function atualizarResumoTipos() {
+    if (!filtros) return;
+    const tipos = capturasPorTipo();
     const titulo = document.createElement("summary");
     titulo.textContent = "Progresso de captura por tipo (" + tipos.size + ")";
     const lista = document.createElement("ul");
@@ -530,6 +538,43 @@ function atualizarResumoTipos() {
         lista.append(item);
     }
     resumoTipos.replaceChildren(titulo, lista);
+}
+
+// Local collection achievements derive from saved captures and favorites.
+// No paid currency, external service or separate mutable badge state exists.
+function atualizarMedalhasPokedex() {
+    if (!filtros || !cartoesPokemon.length) return;
+    const tipos = capturasPorTipo();
+    const tiposCompletos = [...tipos.values()].filter(tipo =>
+        tipo.total > 0 && tipo.capturados === tipo.total).length;
+    const total = cartoesPokemon.length;
+    const metas = [
+        {nome: "Primeira captura", atual: capturados.size, alvo: 1},
+        {nome: "Equipe de seis", atual: capturados.size, alvo: Math.min(6, total)},
+        {nome: "Explorador da região", atual: capturados.size, alvo: Math.min(12, total)},
+        {nome: "Colecionador dedicado", atual: capturados.size, alvo: Math.min(24, total)},
+        {nome: "Pokédex completa", atual: capturados.size, alvo: total},
+        {nome: "Trio de favoritos", atual: favoritos.size, alvo: Math.min(3, total)},
+        {nome: "Mestre dos tipos", atual: tiposCompletos, alvo: tipos.size}
+    ].filter(meta => meta.alvo > 0);
+    const conquistadas = metas.filter(meta => meta.atual >= meta.alvo).length;
+    const titulo = document.createElement("summary");
+    titulo.textContent = "Medalhas da Pokédex (" + conquistadas + "/" + metas.length + ")";
+    const lista = document.createElement("ul");
+    for (const meta of metas) {
+        const item = document.createElement("li");
+        const concluida = meta.atual >= meta.alvo;
+        const rotulo = document.createElement("span");
+        rotulo.textContent = (concluida ? "Conquistada: " : "Em andamento: ") +
+            meta.nome + " · " + Math.min(meta.atual, meta.alvo) + "/" + meta.alvo;
+        const barra = document.createElement("progress");
+        barra.max = meta.alvo;
+        barra.value = Math.min(meta.atual, meta.alvo);
+        barra.setAttribute("aria-label", "Progresso da medalha " + meta.nome);
+        item.append(rotulo, barra);
+        lista.append(item);
+    }
+    medalhasPokedex.replaceChildren(titulo, lista);
 }
 
 function atualizarFiltros() {
@@ -555,6 +600,7 @@ function atualizarFiltros() {
 
     const percentual = cartoesPokemon.length ? Math.round(capturados.size / cartoesPokemon.length * 100) : 0;
     atualizarResumoTipos();
+    atualizarMedalhasPokedex();
     progressoCaptura.textContent = `${capturados.size} capturados · ${cartoesPokemon.length - capturados.size} pendentes · ${percentual}% da coleção · ${favoritos.size} favoritos.`;
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
