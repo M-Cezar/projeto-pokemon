@@ -358,7 +358,24 @@ if (filtros) {
     botaoDesfazer.setAttribute("aria-label", "Desfazer última alteração local de capturas ou favoritos");
     botaoDesfazer.disabled = !ultimaAlteracao;
     botaoDesfazer.addEventListener("click", desfazerAlteracao);
-    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente, concluirTipo, botaoDesfazer);
+    const favoritosPendentes = document.createElement("button");
+    favoritosPendentes.type = "button";
+    favoritosPendentes.textContent = "Favoritos ainda não capturados";
+    favoritosPendentes.setAttribute("aria-label", "Mostrar somente favoritos pendentes de captura");
+    favoritosPendentes.addEventListener("click", () => {
+        const total = [...favoritos].filter(numero => !capturados.has(numero)).length;
+        campoBusca.value = "";
+        seletorTipo.value = "";
+        filtroCapturados.checked = false;
+        filtroPendentes.checked = true;
+        filtroFavoritos.checked = true;
+        atualizarFiltros();
+        resultadoBusca.textContent = total
+            ? total + " favoritos ainda aguardam captura."
+            : "Nenhum favorito pendente de captura.";
+        filtroFavoritos.focus();
+    });
+    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente, concluirTipo, favoritosPendentes, botaoDesfazer);
     filtros.insertBefore(acoes, resultadoBusca);
 }
 
