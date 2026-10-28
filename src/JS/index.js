@@ -751,6 +751,38 @@ if (filtros) {
     filtros.insertBefore(criarRoteiro, resultadoBusca);
     filtros.insertBefore(roteiro, resultadoBusca);
 }
+// Navigate uncaught Pokémon from the current filtered view without changing
+// captures, favorites, ordering, or any persisted data.
+if (filtros) {
+    const proximoPendente = document.createElement("button");
+    proximoPendente.type = "button";
+    proximoPendente.textContent = "Ir ao próximo pendente";
+    proximoPendente.setAttribute("aria-label", "Localizar o próximo Pokémon não capturado nos filtros atuais");
+    const statusPendente = document.createElement("span");
+    statusPendente.setAttribute("role", "status");
+    statusPendente.setAttribute("aria-live", "polite");
+    let ultimoNumero = "";
+    proximoPendente.addEventListener("click", () => {
+        const lista = document.querySelector(".listagem-pokemon");
+        const pendentes = lista ? [...lista.querySelectorAll(".cartao-pokemon")].filter(cartao =>
+            !cartao.hidden && !capturados.has(numeroDoCartao(cartao))) : [];
+        if (!pendentes.length) {
+            ultimoNumero = "";
+            statusPendente.textContent = "Nenhum Pokémon pendente nos filtros atuais.";
+            return;
+        }
+        const indice = pendentes.findIndex(cartao => numeroDoCartao(cartao) === ultimoNumero);
+        const proximo = pendentes[(indice + 1) % pendentes.length];
+        ultimoNumero = numeroDoCartao(proximo);
+        const nome = proximo.querySelector(".informacoes span")?.textContent?.trim() || ultimoNumero;
+        proximo.tabIndex = -1;
+        proximo.scrollIntoView({behavior: "smooth", block: "center"});
+        proximo.focus({preventScroll: true});
+        statusPendente.textContent = nome + " · " + (pendentes.indexOf(proximo) + 1) + "/" + pendentes.length + " pendentes visíveis.";
+    });
+    filtros.insertBefore(proximoPendente, resultadoBusca);
+    filtros.insertBefore(statusPendente, resultadoBusca);
+}
 // Slash focuses search; Escape clears the active search.
 document.addEventListener("keydown", event => {
     const target = event.target;
