@@ -662,6 +662,61 @@ if (filtros) {
     });
     filtros.insertBefore(limparFiltros, resultadoBusca);
 }
+// A small, read-only discovery route through currently visible uncaught
+// Pokémon. It never marks captures or modifies saved collection data.
+if (filtros) {
+    const criarRoteiro = document.createElement("button");
+    criarRoteiro.type = "button";
+    criarRoteiro.textContent = "Montar roteiro de 5 pendentes";
+    criarRoteiro.setAttribute("aria-label", "Criar um roteiro de até cinco Pokémon ainda não capturados dos filtros atuais");
+    const roteiro = document.createElement("details");
+    roteiro.className = "roteiro-pokedex";
+    const resumo = document.createElement("summary");
+    resumo.textContent = "Roteiro de descoberta";
+    const lista = document.createElement("ol");
+    lista.setAttribute("aria-label", "Pokémon sugeridos para descoberta");
+    const status = document.createElement("p");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    roteiro.append(resumo, status, lista);
+    criarRoteiro.addEventListener("click", () => {
+        const candidatos = cartoesPokemon.filter(cartao =>
+            !cartao.hidden && !capturados.has(numeroDoCartao(cartao)));
+        // Shuffle a copy, never the on-screen order or persisted sorting.
+        for (let i = candidatos.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidatos[i], candidatos[j]] = [candidatos[j], candidatos[i]];
+        }
+        lista.replaceChildren();
+        for (const cartao of candidatos.slice(0, 5)) {
+            const item = document.createElement("li");
+            const ir = document.createElement("button");
+            ir.type = "button";
+            const nome = cartao.querySelector(".informacoes span")?.textContent?.trim() ||
+                String(numeroDoCartao(cartao));
+            ir.textContent = nome;
+            ir.setAttribute("aria-label", "Ir para " + nome + " na Pokédex");
+            ir.addEventListener("click", () => {
+                // Filters may have changed after the route was generated.
+                if (cartao.hidden) {
+                    status.textContent = "Este Pokémon não está mais visível. Atualize o roteiro.";
+                    return;
+                }
+                cartao.tabIndex = -1;
+                cartao.scrollIntoView({behavior: "smooth", block: "center"});
+                cartao.focus({preventScroll: true});
+            });
+            item.append(ir);
+            lista.append(item);
+        }
+        status.textContent = candidatos.length ?
+            "Roteiro com " + Math.min(5, candidatos.length) + " pendente(s). Selecione um para localizar." :
+            "Nenhum Pokémon pendente nos filtros atuais.";
+        roteiro.open = true;
+    });
+    filtros.insertBefore(criarRoteiro, resultadoBusca);
+    filtros.insertBefore(roteiro, resultadoBusca);
+}
 // Slash focuses search; Escape clears the active search.
 document.addEventListener("keydown", event => {
     const target = event.target;
