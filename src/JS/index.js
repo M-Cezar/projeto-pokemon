@@ -662,6 +662,40 @@ if (filtros) {
     });
     filtros.insertBefore(limparFiltros, resultadoBusca);
 }
+// Copy a read-only progress report without exporting individual capture IDs.
+if (filtros) {
+    const copiarResumo = document.createElement("button");
+    copiarResumo.type = "button";
+    copiarResumo.textContent = "Copiar relatório de progresso";
+    copiarResumo.setAttribute("aria-label", "Copiar progresso da Pokédex e capturas por tipo");
+    const statusResumo = document.createElement("span");
+    statusResumo.setAttribute("role", "status");
+    statusResumo.setAttribute("aria-live", "polite");
+    copiarResumo.addEventListener("click", async () => {
+        const total = cartoesPokemon.length;
+        const concluidos = capturados.size;
+        const percentual = total ? Math.round(concluidos / total * 100) : 0;
+        const linhas = [
+            "Progresso da Pokédex",
+            "Capturados: " + concluidos + "/" + total + " (" + percentual + "%)",
+            "Pendentes: " + (total - concluidos),
+            "Favoritos: " + favoritos.size,
+            "Capturas por tipo:"
+        ];
+        for (const [nome, dados] of [...capturasPorTipo()].sort((a, b) =>
+            a[0].localeCompare(b[0], "pt-BR"))) {
+            linhas.push(nome + ": " + dados.capturados + "/" + dados.total);
+        }
+        try {
+            await navigator.clipboard.writeText(linhas.join("\n"));
+            statusResumo.textContent = "Relatório de progresso copiado.";
+        } catch {
+            statusResumo.textContent = "Não foi possível copiar. Verifique a permissão da área de transferência.";
+        }
+    });
+    filtros.insertBefore(copiarResumo, resultadoBusca);
+    filtros.insertBefore(statusResumo, resultadoBusca);
+}
 // A small, read-only discovery route through currently visible uncaught
 // Pokémon. It never marks captures or modifies saved collection data.
 if (filtros) {
