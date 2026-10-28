@@ -613,6 +613,7 @@ function atualizarMedalhasPokedex() {
     medalhasPokedex.replaceChildren(titulo, lista);
 }
 
+let atualizarDesafioDiario = () => {};
 function atualizarFiltros() {
     ordenarCartoes();
     const termo = normalizarBusca(campoBusca.value);
@@ -641,6 +642,7 @@ function atualizarFiltros() {
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
         : `${visiveis} de ${cartoesPokemon.length} Pokémon exibidos.`;
+    atualizarDesafioDiario();
 }
 
 campoBusca.addEventListener("input", atualizarFiltros);
@@ -792,6 +794,63 @@ if (filtros) {
     });
     filtros.insertBefore(proximoPendente, resultadoBusca);
     filtros.insertBefore(statusPendente, resultadoBusca);
+}
+// A deterministic three-species daily objective, based on Brasilia's date.
+ // It is local and read-only: the existing capture buttons remain authoritative.
+ // The same challenge survives reloads and changes only with the calendar day.
+if (filtros && cartoesPokemon.length) {
+    const date = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(new Date());
+    let seed = 0;
+    for (const char of date) seed = (Math.imul(seed, 31) + char.charCodeAt(0)) >>> 0;
+    const pool = [...cartoesPokemon].sort((a, b) =>
+        numeroDoCartao(a).localeCompare(numeroDoCartao(b), "pt-BR", {numeric: true}));
+    for (let i = pool.length - 1; i > 0; i--) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        const j = seed % (i + 1);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const selected = pool.slice(0, 3);
+    const panel = document.createElement("details");
+    panel.className = "resumo-tipos desafio-diario";
+    const summary = document.createElement("summary");
+    summary.textContent = "Desafio diário da Pokédex · " + date;
+    const status = document.createElement("p");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    const list = document.createElement("ol");
+    const buttons = selected.map(cartao => {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.addEventListener("click", () => {
+            campoBusca.value = "";
+            seletorTipo.value = "";
+            filtroCapturados.checked = false;
+            filtroPendentes.checked = false;
+            filtroFavoritos.checked = false;
+            atualizarFiltros();
+            cartao.tabIndex = -1;
+            cartao.scrollIntoView({behavior: "smooth", block: "center"});
+            cartao.focus({preventScroll: true});
+        });
+        item.append(button);
+        list.append(item);
+        return {cartao, button};
+    });
+    panel.append(summary, status, list);
+    filtros.insertBefore(panel, resultadoBusca);
+    atualizarDesafioDiario = () => {
+        const done = selected.filter(cartao => capturados.has(numeroDoCartao(cartao))).length;
+        status.textContent = done + "/" + selected.length +
+            " capturas do desafio concluídas. Sem recompensas pagas ou alterações automáticas.";
+        for (const {cartao, button} of buttons) {
+            const name = cartao.querySelector(".informacoes span")?.textContent?.trim() ||
+                numeroDoCartao(cartao);
+            button.textContent = (capturados.has(numeroDoCartao(cartao)) ? "Concluído: " : "Pendente: ") + name;
+        }
+    };
 }
 // Slash focuses search; Escape clears the active search.
 document.addEventListener("keydown", event => {
