@@ -155,8 +155,15 @@ function ordenarCartoes() {
 
 const renderizarCapturas = [];
 const renderizarFavoritos = [];
+// One-step local undo; another tab's write invalidates the snapshot.
+let ultimaAlteracao = null;
+let botaoDesfazer = null;
 // Keep separate browser tabs in sync without replacing the current page.
 window.addEventListener("storage", event => {
+    if ([CHAVE_CAPTURAS, CHAVE_FAVORITOS, null].includes(event.key)) {
+        ultimaAlteracao = null;
+        if (botaoDesfazer) botaoDesfazer.disabled = true;
+    }
     if (event.key === CHAVE_ORDEM || event.key === null) {
         let modo = "numero";
         try { modo = localStorage.getItem(CHAVE_ORDEM) || "numero"; } catch {}
@@ -189,6 +196,25 @@ function salvarFavoritos() {
     try { localStorage.setItem(CHAVE_FAVORITOS, JSON.stringify([...favoritos])); }
     catch { /* Favoritos continuam disponíveis durante a sessão. */ }
 }
+function registrarDesfazer() {
+    ultimaAlteracao = {capturas: new Set(capturados), favoritos: new Set(favoritos)};
+    if (botaoDesfazer) botaoDesfazer.disabled = false;
+}
+function desfazerAlteracao() {
+    if (!ultimaAlteracao) return;
+    const anterior = ultimaAlteracao;
+    ultimaAlteracao = null;
+    capturados.clear();
+    favoritos.clear();
+    for (const numero of anterior.capturas) capturados.add(numero);
+    for (const numero of anterior.favoritos) favoritos.add(numero);
+    salvarCapturas();
+    salvarFavoritos();
+    renderizarCapturas.forEach(render => render());
+    renderizarFavoritos.forEach(render => render());
+    if (botaoDesfazer) botaoDesfazer.disabled = true;
+    atualizarFiltros();
+}
 for (const cartao of cartoesPokemon) {
     const numero = numeroDoCartao(cartao);
     const botao = document.createElement("button");
@@ -202,6 +228,7 @@ for (const cartao of cartoesPokemon) {
     }
     renderizarCapturas.push(atualizarBotao);
     botao.addEventListener("click", () => {
+        registrarDesfazer();
         if (capturados.has(numero)) capturados.delete(numero);
         else capturados.add(numero);
         salvarCapturas();
@@ -222,6 +249,7 @@ for (const cartao of cartoesPokemon) {
     }
     renderizarFavoritos.push(atualizarFavorito);
     botaoFavorito.addEventListener("click", () => {
+        registrarDesfazer();
         if (favoritos.has(numero)) favoritos.delete(numero);
         else favoritos.add(numero);
         salvarFavoritos();
@@ -250,6 +278,7 @@ if (filtros) {
             if (cartao.hidden) continue;
             const numero = numeroDoCartao(cartao);
             if (capturados.has(numero) === capturar) continue;
+            if (!alterados) registrarDesfazer();
             if (capturar) capturados.add(numero);
             else capturados.delete(numero);
             alterados++;
@@ -323,7 +352,13 @@ if (filtros) {
             meta.pendentes + " de " + meta.total + " Pokémon deste tipo.";
         seletorTipo.focus();
     });
-    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente, concluirTipo);
+    botaoDesfazer = document.createElement("button");
+    botaoDesfazer.type = "button";
+    botaoDesfazer.textContent = "Desfazer última alteração";
+    botaoDesfazer.setAttribute("aria-label", "Desfazer última alteração local de capturas ou favoritos");
+    botaoDesfazer.disabled = !ultimaAlteracao;
+    botaoDesfazer.addEventListener("click", desfazerAlteracao);
+    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente, concluirTipo, botaoDesfazer);
     filtros.insertBefore(acoes, resultadoBusca);
 }
 
@@ -381,6 +416,7 @@ if (filtros) {
                     !dados.favoritos.every(numero => typeof numero === "string" && numero.length <= 12)))) {
                 throw new Error("O arquivo não é um backup de capturas válido.");
             }
+            const anteriorBackup = {capturas: new Set(capturados), favoritos: new Set(favoritos)};
             let novas = 0;
             for (const numero of dados.capturados) {
                 if (!numerosDisponiveis.has(numero) || capturados.has(numero)) continue;
@@ -395,6 +431,10 @@ if (filtros) {
                 novosFavoritos++;
             }
             if (novosFavoritos) salvarFavoritos();
+            if (novas || novosFavoritos) {
+                ultimaAlteracao = anteriorBackup;
+                if (botaoDesfazer) botaoDesfazer.disabled = false;
+            }
             renderizarCapturas.forEach(render => render());
             renderizarFavoritos.forEach(render => render());
             atualizarFiltros();
