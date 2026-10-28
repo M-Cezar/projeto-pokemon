@@ -841,10 +841,40 @@ if (filtros && cartoesPokemon.length) {
     });
     panel.append(summary, status, list);
     filtros.insertBefore(panel, resultadoBusca);
+    // Completion history is local to this browser and never grants rewards.
+    // The current challenge remains deterministic and is not rerolled.
+    const historyKey = "pokedex:desafios-diarios:v1";
+    let completedDays = new Set();
+    try {
+        const stored = JSON.parse(localStorage.getItem(historyKey) || "[]");
+        if (Array.isArray(stored)) completedDays = new Set(stored.filter(day =>
+            typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day) &&
+            day <= date).slice(-90));
+    } catch { /* Private browsing may disable persistence. */ }
+    const previousDate = day => {
+        const timestamp = Date.parse(day + "T12:00:00Z");
+        return new Date(timestamp - 86400000).toISOString().slice(0, 10);
+    };
     atualizarDesafioDiario = () => {
         const done = selected.filter(cartao => capturados.has(numeroDoCartao(cartao))).length;
+        if (done === selected.length && !completedDays.has(date)) {
+            completedDays.add(date);
+            try {
+                localStorage.setItem(historyKey, JSON.stringify(
+                    [...completedDays].sort().slice(-90)));
+            } catch { /* Progress remains visible in this session. */ }
+        }
+        let cursor = completedDays.has(date) ? date : previousDate(date);
+        let streak = 0;
+        while (completedDays.has(cursor) && streak < 90) {
+            streak++;
+            cursor = previousDate(cursor);
+        }
         status.textContent = done + "/" + selected.length +
-            " capturas do desafio concluídas. Sem recompensas pagas ou alterações automáticas.";
+            " capturas do desafio concluídas · " + completedDays.size +
+            " dia(s) registrados · sequência de " + streak + " dia(s)" +
+            (completedDays.has(date) ? "." : " até ontem.") +
+            " Histórico local, sem recompensas automáticas.";
         for (const {cartao, button} of buttons) {
             const name = cartao.querySelector(".informacoes span")?.textContent?.trim() ||
                 numeroDoCartao(cartao);
