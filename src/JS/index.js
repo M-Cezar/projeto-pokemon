@@ -451,4 +451,36 @@ filtroPendentes.addEventListener("change", () => {
     atualizarFiltros();
 });
 filtroFavoritos.addEventListener("change", atualizarFiltros);
+// Reset view filters without touching captures, favorites or saved ordering.
+if (filtros) {
+    const limparFiltros = document.createElement("button");
+    limparFiltros.type = "button";
+    limparFiltros.className = "limpar-filtros";
+    limparFiltros.textContent = "Limpar filtros";
+    limparFiltros.setAttribute("aria-label", "Limpar busca e filtros sem apagar capturas");
+    limparFiltros.addEventListener("click", () => {
+        campoBusca.value = "";
+        seletorTipo.value = "";
+        filtroCapturados.checked = false;
+        filtroPendentes.checked = false;
+        filtroFavoritos.checked = false;
+        atualizarFiltros();
+        campoBusca.focus();
+    });
+    filtros.insertBefore(limparFiltros, resultadoBusca);
+}
+// Slash focuses search; Escape clears the active search.
+document.addEventListener("keydown", event => {
+    const target = event.target;
+    const typing = target instanceof HTMLElement &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable);
+    if (event.key === "/" && !typing && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        campoBusca.focus();
+    } else if (event.key === "Escape" && document.activeElement === campoBusca && campoBusca.value) {
+        event.preventDefault();
+        campoBusca.value = "";
+        atualizarFiltros();
+    }
+});
 atualizarFiltros();
