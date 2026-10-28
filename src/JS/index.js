@@ -288,7 +288,42 @@ if (filtros) {
         const nome = escolhido.querySelector(".informacoes span")?.textContent?.trim() || "Pokémon";
         resultadoBusca.textContent = "Pendente sugerido: " + nome + ".";
     });
-    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente);
+    // Find the closest unfinished type collection, using only catalogue cards.
+    // Filtering never changes saved captures, favorites or their ordering.
+    const concluirTipo = document.createElement("button");
+    concluirTipo.type = "button";
+    concluirTipo.textContent = "Concluir tipo mais próximo";
+    concluirTipo.setAttribute("aria-label", "Mostrar Pokémon pendentes do tipo mais próximo da conclusão");
+    concluirTipo.addEventListener("click", () => {
+        const opcoes = [...seletorTipo.options].filter(opcao => opcao.value);
+        const metas = opcoes.map(opcao => {
+            const especies = cartoesPokemon.filter(cartao =>
+                [...cartao.querySelectorAll(".tipos .tipo")].some(tipo =>
+                    tipo.classList.contains(opcao.value)));
+            const pendentes = especies.filter(cartao =>
+                !capturados.has(numeroDoCartao(cartao)));
+            return {id: opcao.value, nome: opcao.textContent.trim(),
+                total: especies.length, pendentes: pendentes.length};
+        }).filter(meta => meta.total > 0 && meta.pendentes > 0)
+            .sort((a, b) => a.pendentes - b.pendentes ||
+                (b.total - b.pendentes) - (a.total - a.pendentes) ||
+                a.nome.localeCompare(b.nome, "pt-BR"));
+        if (!metas.length) {
+            resultadoBusca.textContent = "Todos os tipos disponíveis já foram completados.";
+            return;
+        }
+        const meta = metas[0];
+        campoBusca.value = "";
+        seletorTipo.value = meta.id;
+        filtroCapturados.checked = false;
+        filtroPendentes.checked = true;
+        filtroFavoritos.checked = false;
+        atualizarFiltros();
+        resultadoBusca.textContent = "Meta sugerida: " + meta.nome + " · faltam " +
+            meta.pendentes + " de " + meta.total + " Pokémon deste tipo.";
+        seletorTipo.focus();
+    });
+    acoes.append(capturarVisiveis, limparVisiveis, descobrirPendente, concluirTipo);
     filtros.insertBefore(acoes, resultadoBusca);
 }
 
