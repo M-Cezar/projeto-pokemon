@@ -139,6 +139,15 @@ const quizCards = cartoesPokemon.map(cartao => ({
     types: [...cartao.querySelectorAll(".tipos .tipo")].map(tipo => tipo.textContent.trim()).filter(Boolean)
 }));
 let quizRoundSize = Math.min(10, quizCards.length);
+let quizTypeStats = new Map();
+function recordQuizTypeResult(pokemon, correct) {
+    for (const type of new Set(pokemon.types)) {
+        const current = quizTypeStats.get(type) || {asked: 0, correct: 0};
+        current.asked++;
+        if (correct) current.correct++;
+        quizTypeStats.set(type, current);
+    }
+}
 const quizButton = document.createElement("button");
 quizButton.type = "button";
 quizButton.className = "abrir-quiz";
@@ -368,6 +377,7 @@ function showQuizQuestion() {
             quizHint.disabled = true;
             quizHint.hidden = true;
             const correct = choice.name === current.name;
+            recordQuizTypeResult(current, correct);
             if (correct) {
                 quizCorrect++;
                 quizStreak++;
@@ -403,6 +413,7 @@ quizSkip.addEventListener("click", () => {
     quizStreak = 0;
     const current = quizQuestions[quizIndex];
     quizMissed.push(current);
+    recordQuizTypeResult(current, false);
     quizImage.classList.add("revelada");
     quizHint.disabled = true;
     quizHint.hidden = true;
@@ -464,6 +475,7 @@ function startQuiz(review = false) {
     quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, requested);
     quizRoundSize = quizQuestions.length;
     quizMissed = [];
+    quizTypeStats = new Map();
     quizReview.hidden = true;
     quizIndex = 0;
     quizCorrect = 0;
@@ -504,6 +516,20 @@ function finishQuiz() {
         (quizIsReview ? "" : " (recorde: " + streakRecord + ")") +
         ". Dicas utilizadas: " + quizHintsUsed + ".";
     quizFeedback.textContent += " Perguntas puladas: " + quizSkipped + ".";
+    // A type with several missed questions deserves targeted practice.
+    // These statistics belong to this round only, not persistent records.
+    const weakestTypes = [...quizTypeStats.entries()]
+        .filter(([, stats]) => stats.correct < stats.asked)
+        .sort((a, b) => (b[1].asked - b[1].correct) -
+            (a[1].asked - a[1].correct) || a[0].localeCompare(b[0], "pt-BR"))
+        .slice(0, 3);
+    if (weakestTypes.length) {
+        quizFeedback.textContent += " Tipos para praticar: " +
+            weakestTypes.map(([type, stats]) =>
+                type + " (" + stats.correct + "/" + stats.asked + " acertos)").join(", ") + ".";
+    } else if (quizTypeStats.size) {
+        quizFeedback.textContent += " Todos os tipos desta rodada foram identificados corretamente.";
+    }
     quizReview.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     quizNext.textContent = "Jogar novamente";
