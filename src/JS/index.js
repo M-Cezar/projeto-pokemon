@@ -270,6 +270,9 @@ function quizRecord() {
     }
 }
 let quizQuestions = [];
+// Keep the selected collection stable throughout an active quiz. Capture
+// changes from other tabs apply to the next game, not mid-question choices.
+let quizChoicePool = [];
 let quizIndex = 0;
 let quizCorrect = 0;
 let quizAnswered = false;
@@ -318,9 +321,7 @@ function showQuizQuestion() {
     quizImage.classList.remove("revelada");
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
-    const choicePool = quizCollection.value === "capturados"
-        ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
-    const distractors = shuffleQuiz(choicePool.filter(card => card.number !== current.number)).slice(0, choices);
+    const distractors = shuffleQuiz(quizChoicePool.filter(card => card.number !== current.number)).slice(0, choices);
     for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
         const option = document.createElement("button");
         option.type = "button";
@@ -410,6 +411,7 @@ function startQuiz(review = false) {
         ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
     const reviewPool = review ? [...quizMissed] : [];
     quizIsReview = review && reviewPool.length > 0;
+    quizChoicePool = quizIsReview ? [...quizCards] : [...pool];
     const requested = Number(quizLength.value) || 10;
     quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, requested);
     quizRoundSize = quizQuestions.length;
