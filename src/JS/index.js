@@ -300,7 +300,12 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizClose);
+const quizWeakType = document.createElement("button");
+quizWeakType.type = "button";
+quizWeakType.className = "quiz-revisao";
+quizWeakType.textContent = "Treinar tipo mais difícil";
+quizWeakType.hidden = true;
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -569,7 +574,15 @@ function quizTypeWeakness(card) {
         return Math.max(highest, (stats.asked - stats.correct) / stats.asked);
     }, 0);
 }
-function startQuiz(review = false) {
+function weakestQuizTrainingType() {
+    return [...quizTypeHistory.entries()]
+        .filter(([type, stats]) => stats.asked >= 3 && stats.correct < stats.asked &&
+            quizCards.filter(card => card.types.includes(type)).length >= 4)
+        .sort((a, b) => (b[1].asked - b[1].correct) / b[1].asked -
+            (a[1].asked - a[1].correct) / a[1].asked ||
+            b[1].asked - a[1].asked || a[0].localeCompare(b[0], "pt-BR"))[0]?.[0] ?? null;
+}
+function startQuiz(review = false, focusType = null) {
     if (quizCards.length < 4) return;
     const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
     const capturedOption = quizCollection.querySelector('option[value="capturados"]');
@@ -591,9 +604,12 @@ function startQuiz(review = false) {
     mistakesOption.disabled = mistakesPool.length === 0;
     mistakesOption.textContent = "Praticar erros salvos (" + mistakesPool.length + ")";
     if (mistakesOption.disabled && quizCollection.value === "erros") quizCollection.value = "todos";
-    activeQuizCollection = quizCollection.value;
-    activeQuizType = selectedType;
-    const pool = quizCollection.value === "capturados"
+    const focusedPool = focusType
+        ? quizCards.filter(card => card.types.includes(focusType)) : [];
+    const useFocus = focusedPool.length >= 4;
+    activeQuizCollection = useFocus ? "tipo" : quizCollection.value;
+    activeQuizType = useFocus ? focusType : selectedType;
+    const pool = useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
         : quizCollection.value === "tipo" ? typePool
         : quizCollection.value === "erros" ? mistakesPool : quizCards;
@@ -626,6 +642,7 @@ function startQuiz(review = false) {
     quizMissed = [];
     quizTypeStats = new Map();
     quizReview.hidden = true;
+    quizWeakType.hidden = true;
     quizIndex = 0;
     quizCorrect = 0;
     quizPoints = 0;
@@ -699,6 +716,10 @@ function finishQuiz() {
     }
     quizReview.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
+    const weakest = weakestQuizTrainingType();
+    quizWeakType.hidden = weakest === null;
+    quizWeakType.textContent = weakest
+        ? "Treinar tipo " + weakest + " (prioridade)" : "Treinar tipo mais difícil";
     quizNext.textContent = "Jogar novamente";
     quizNext.hidden = false;
     quizNext.focus();
@@ -717,6 +738,10 @@ quizButton.addEventListener("click", () => {
     if (quizCards.length >= 4) quizDialog.showModal();
 });
 quizReview.addEventListener("click", () => startQuiz(true));
+quizWeakType.addEventListener("click", () => {
+    const type = weakestQuizTrainingType();
+    if (type) startQuiz(false, type);
+});
 quizNext.addEventListener("click", () => {
     if (quizIndex >= quizRoundSize) return startQuiz();
     if (!quizAnswered) return;
