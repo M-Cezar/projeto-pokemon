@@ -338,6 +338,7 @@ function showQuizQuestion() {
     const current = quizQuestions[quizIndex];
     quizImage.hidden = false;
     quizImage.src = current.image;
+    quizImage.alt = "Silhueta de um Pokémon misterioso";
     quizImage.classList.remove("revelada");
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
@@ -389,6 +390,7 @@ function showQuizQuestion() {
                 quizMissed.push(current);
             }
             quizImage.classList.add("revelada");
+            quizImage.alt = "Pokémon revelado: " + current.name;
             for (const button of quizOptions.querySelectorAll("button")) {
                 button.disabled = true;
                 if (button.textContent === current.name) button.classList.add("correta");
@@ -396,9 +398,20 @@ function showQuizQuestion() {
             }
             const learningDetail = current.types.length
                 ? " Tipo: " + current.types.join(" e ") + "." : "";
+            // Explain the selected distractor instead of only revealing the
+            // answer. Type overlap helps the player learn close silhouettes.
+            const chosenTypes = Array.isArray(choice.types) ? choice.types : [];
+            const sharedTypes = chosenTypes.filter(type => current.types.includes(type));
+            const comparison = correct ? "" :
+                " Você escolheu " + choice.name +
+                (chosenTypes.length ? " (" + chosenTypes.join(" e ") + ")." : ".") +
+                (sharedTypes.length
+                    ? " Tipo em comum: " + sharedTypes.join(" e ") + "."
+                    : current.types.length && chosenTypes.length
+                        ? " Os tipos dos dois Pokémon são diferentes." : "");
             quizFeedback.textContent = (correct
                 ? "Acertou! " + current.name + "."
-                : "Resposta correta: " + current.name + ".") + learningDetail;
+                : "Resposta correta: " + current.name + ".") + learningDetail + comparison;
             updateQuizScore();
             quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
             quizNext.hidden = false;
@@ -416,6 +429,7 @@ quizSkip.addEventListener("click", () => {
     quizMissed.push(current);
     recordQuizTypeResult(current, false);
     quizImage.classList.add("revelada");
+    quizImage.alt = "Pokémon revelado: " + current.name;
     quizHint.disabled = true;
     quizHint.hidden = true;
     quizSkip.hidden = true;
@@ -528,6 +542,14 @@ function finishQuiz() {
         (quizIsReview ? "" : " (recorde: " + streakRecord + ")") +
         ". Dicas utilizadas: " + quizHintsUsed + ".";
     quizFeedback.textContent += " Perguntas puladas: " + quizSkipped + ".";
+    // Name the missed silhouettes for targeted practice without storing a
+    // separate history or changing the original session's score.
+    const reviewNames = [...new Set(quizMissed.map(card => card.name))];
+    if (reviewNames.length) {
+        quizFeedback.textContent += " Para revisar: " +
+            reviewNames.slice(0, 5).join(", ") +
+            (reviewNames.length > 5 ? " e mais " + (reviewNames.length - 5) : "") + ".";
+    }
     // A type with several missed questions deserves targeted practice.
     // These statistics belong to this round only, not persistent records.
     const weakestTypes = [...quizTypeStats.entries()]
