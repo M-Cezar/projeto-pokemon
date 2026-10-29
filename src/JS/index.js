@@ -559,6 +559,16 @@ function spaceQuizQuestions(cards) {
     }
     return arranged;
 }
+// Use historical error rates to select targeted practice questions. Only
+// types with at least three attempts influence the ranking; untrained types
+// remain eligible and shuffled ties preserve variety between sessions.
+function quizTypeWeakness(card) {
+    return card.types.reduce((highest, type) => {
+        const stats = quizTypeHistory.get(type);
+        if (!stats || stats.asked < 3) return highest;
+        return Math.max(highest, (stats.asked - stats.correct) / stats.asked);
+    }, 0);
+}
 function startQuiz(review = false) {
     if (quizCards.length < 4) return;
     const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
@@ -599,7 +609,8 @@ function startQuiz(review = false) {
         if (quizIsReview) return reviewPool;
         if (activeQuizCollection !== "todos") return shuffleQuiz(pool).slice(0, requested);
         const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
-        const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)));
+        const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)))
+            .sort((a, b) => quizTypeWeakness(b) - quizTypeWeakness(a));
         const practiceSlots = Math.min(mistakes.length, Math.ceil(requested / 2));
         const selected = [...mistakes.slice(0, practiceSlots),
             ...fresh.slice(0, requested - practiceSlots)];
