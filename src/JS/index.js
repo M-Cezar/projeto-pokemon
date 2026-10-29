@@ -552,7 +552,25 @@ function startQuiz(review = false) {
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
     const requested = Number(quizLength.value) || 10;
-    quizQuestions = spaceQuizQuestions(quizIsReview ? reviewPool : shuffleQuiz(pool).slice(0, requested));
+    // General practice revisits a few saved mistakes without turning the
+    // entire session into review mode. Correct answers remove them from the
+    // persisted practice set, so future sessions adapt automatically.
+    const selectedQuestions = (() => {
+        if (quizIsReview) return reviewPool;
+        if (activeQuizCollection !== "todos") return shuffleQuiz(pool).slice(0, requested);
+        const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
+        const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)));
+        const practiceSlots = Math.min(mistakes.length, Math.ceil(requested / 2));
+        const selected = [...mistakes.slice(0, practiceSlots),
+            ...fresh.slice(0, requested - practiceSlots)];
+        if (selected.length < requested) {
+            const chosen = new Set(selected.map(card => card.number));
+            selected.push(...mistakes.filter(card => !chosen.has(card.number))
+                .slice(0, requested - selected.length));
+        }
+        return shuffleQuiz(selected);
+    })();
+    quizQuestions = spaceQuizQuestions(selectedQuestions);
     quizRoundSize = quizQuestions.length;
     quizMissed = [];
     quizTypeStats = new Map();
