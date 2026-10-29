@@ -138,9 +138,33 @@ const quizCards = cartoesPokemon.map(cartao => ({
     image: cartao.querySelector("img.gif").getAttribute("src"),
     types: [...cartao.querySelectorAll(".tipos .tipo")].map(tipo => tipo.textContent.trim()).filter(Boolean)
 }));
+// Preserve missed silhouettes for later practice, even after closing the
+// dialog. Only catalog IDs are accepted; never store remote content.
+const QUIZ_MISTAKES_KEY = "pokedex:quiz-erros:v1";
+function loadQuizMistakes() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(QUIZ_MISTAKES_KEY) || "[]");
+        const known = new Set(quizCards.map(card => card.number));
+        return new Set(Array.isArray(saved)
+            ? saved.filter(id => typeof id === "string" && known.has(id)).slice(0, known.size)
+            : []);
+    } catch { return new Set(); }
+}
+let quizPracticeNumbers = loadQuizMistakes();
+function saveQuizMistakes() {
+    try { localStorage.setItem(QUIZ_MISTAKES_KEY, JSON.stringify([...quizPracticeNumbers])); }
+    catch { /* Local storage is optional; this session remains playable. */ }
+}
+window.addEventListener("storage", event => {
+    if (event.key === QUIZ_MISTAKES_KEY || event.key === null)
+        quizPracticeNumbers = loadQuizMistakes();
+});
 let quizRoundSize = Math.min(10, quizCards.length);
 let quizTypeStats = new Map();
 function recordQuizTypeResult(pokemon, correct) {
+    if (correct) quizPracticeNumbers.delete(pokemon.number);
+    else quizPracticeNumbers.add(pokemon.number);
+    saveQuizMistakes();
     for (const type of new Set(pokemon.types)) {
         const current = quizTypeStats.get(type) || {asked: 0, correct: 0};
         current.asked++;
@@ -189,7 +213,7 @@ quizCollectionLabel.className = "quiz-colecao";
 quizCollectionLabel.textContent = "Perguntas: ";
 const quizCollection = document.createElement("select");
 for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "Somente capturados"],
-    ["tipo", "Somente tipo selecionado"]]) {
+    ["tipo", "Somente tipo selecionado"], ["erros", "Praticar erros salvos"]]) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
@@ -258,6 +282,7 @@ let activeQuizType = "";
 function quizCollectionRecordSuffix() {
     if (activeQuizCollection === "capturados") return ":capturados";
     if (activeQuizCollection === "tipo") return ":tipo:" + activeQuizType;
+    if (activeQuizCollection === "erros") return ":erros";
     return "";
 }
 function quizRecordKey() {
@@ -494,14 +519,20 @@ function startQuiz(review = false) {
             " (" + typePool.length + ")"
         : "Somente tipo selecionado (escolha um filtro)";
     if (typeOption.disabled && quizCollection.value === "tipo") quizCollection.value = "todos";
+    const mistakesPool = quizCards.filter(card => quizPracticeNumbers.has(card.number));
+    const mistakesOption = quizCollection.querySelector('option[value="erros"]');
+    mistakesOption.disabled = mistakesPool.length === 0;
+    mistakesOption.textContent = "Praticar erros salvos (" + mistakesPool.length + ")";
+    if (mistakesOption.disabled && quizCollection.value === "erros") quizCollection.value = "todos";
     activeQuizCollection = quizCollection.value;
     activeQuizType = selectedType;
     const pool = quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
-        : quizCollection.value === "tipo" ? typePool : quizCards;
+        : quizCollection.value === "tipo" ? typePool
+        : quizCollection.value === "erros" ? mistakesPool : quizCards;
     const reviewPool = review ? [...quizMissed] : [];
     quizIsReview = review && reviewPool.length > 0;
-    quizChoicePool = quizIsReview ? [...quizCards] : [...pool];
+    quizChoicePool = quizIsReview || activeQuizCollection === "erros" ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
     const requested = Number(quizLength.value) || 10;
     quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, requested);
