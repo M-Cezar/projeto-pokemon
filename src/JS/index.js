@@ -109,6 +109,26 @@ seletorTipo.addEventListener("change", atualizarFiltros);
 filtroCapturados.addEventListener("change", atualizarFiltros);
 atualizarFiltros();
 
+// Captures are local to this browser profile, but can change in another tab.
+// Refresh both the collection and the visible cards without restarting a quiz
+// or overwriting a more recent save from the other tab.
+window.addEventListener("storage", event => {
+    if (event.key !== CHAVE_CAPTURAS && event.key !== null) return;
+    const atualizadas = carregarCapturas();
+    capturados.clear();
+    for (const numero of atualizadas) capturados.add(numero);
+    for (const cartao of cartoesPokemon) {
+        const numero = numeroDoCartao(cartao);
+        const capturado = capturados.has(numero);
+        const botao = cartao.querySelector(".capturar-pokemon");
+        if (!botao) continue;
+        botao.setAttribute("aria-pressed", String(capturado));
+        botao.textContent = capturado ? "Capturado" : "Marcar como capturado";
+        cartao.classList.toggle("capturado", capturado);
+    }
+    atualizarFiltros();
+});
+
 
 // Quiz local de silhuetas. Usa apenas os Pokémon já presentes no catálogo.
 const QUIZ_KEY = "pokedex:quiz-recorde:v1";
