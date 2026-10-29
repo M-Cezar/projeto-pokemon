@@ -179,7 +179,8 @@ const quizCollectionLabel = document.createElement("label");
 quizCollectionLabel.className = "quiz-colecao";
 quizCollectionLabel.textContent = "Perguntas: ";
 const quizCollection = document.createElement("select");
-for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "Somente capturados"]]) {
+for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "Somente capturados"],
+    ["tipo", "Somente tipo selecionado"]]) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
@@ -239,19 +240,26 @@ const shuffleQuiz = items => {
     }
     return result;
 };
+// Separate records by selected training type; never mix electric and grass
+// specialist rounds with full-collection or captured-only records.
+function quizCollectionRecordSuffix() {
+    if (quizCollection.value === "capturados") return ":capturados";
+    if (quizCollection.value === "tipo") return ":tipo:" + normalizarBusca(seletorTipo.value);
+    return "";
+}
 function quizRecordKey() {
     const base = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
-    return base + (quizCollection.value === "capturados" ? ":capturados" : "") +
+    return base + quizCollectionRecordSuffix() +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizPointsRecordKey() {
     return QUIZ_KEY + ":pontos:" + quizDifficulty.value +
-        (quizCollection.value === "capturados" ? ":capturados" : "") +
+        quizCollectionRecordSuffix() +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizStreakRecordKey() {
     return QUIZ_KEY + ":sequencia:" + quizDifficulty.value +
-        (quizCollection.value === "capturados" ? ":capturados" : "") +
+        quizCollectionRecordSuffix() +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizStreakRecord() {
@@ -414,8 +422,19 @@ function startQuiz(review = false) {
     capturedOption.disabled = capturedCount < 4;
     capturedOption.textContent = "Somente capturados (" + capturedCount + ")";
     if (capturedCount < 4 && quizCollection.value === "capturados") quizCollection.value = "todos";
+    const selectedType = normalizarBusca(seletorTipo.value);
+    const typePool = selectedType ? quizCards.filter(card =>
+        card.types.some(type => normalizarBusca(type) === selectedType)) : [];
+    const typeOption = quizCollection.querySelector('option[value="tipo"]');
+    typeOption.disabled = typePool.length < 4;
+    typeOption.textContent = selectedType
+        ? "Somente tipo " + seletorTipo.options[seletorTipo.selectedIndex].text +
+            " (" + typePool.length + ")"
+        : "Somente tipo selecionado (escolha um filtro)";
+    if (typeOption.disabled && quizCollection.value === "tipo") quizCollection.value = "todos";
     const pool = quizCollection.value === "capturados"
-        ? quizCards.filter(card => capturados.has(card.number)) : quizCards;
+        ? quizCards.filter(card => capturados.has(card.number))
+        : quizCollection.value === "tipo" ? typePool : quizCards;
     const reviewPool = review ? [...quizMissed] : [];
     quizIsReview = review && reviewPool.length > 0;
     quizChoicePool = quizIsReview ? [...quizCards] : [...pool];
