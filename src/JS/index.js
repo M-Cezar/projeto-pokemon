@@ -369,6 +369,7 @@ function showQuizQuestion() {
         option.className = "quiz-opcao";
         option.textContent = choice.name;
         option.setAttribute("aria-label", "Opção " + (index + 1) + ": " + choice.name);
+        option.setAttribute("aria-keyshortcuts", String(index + 1));
         option.addEventListener("click", () => {
             if (quizAnswered) return;
             quizAnswered = true;
@@ -575,10 +576,21 @@ document.addEventListener("keydown", event => {
         target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
     const key = event.key.toLowerCase();
     if (/^[1-6]$/.test(key) && !quizAnswered) {
-        const option = quizOptions.querySelectorAll("button:not(:disabled)")[Number(key) - 1];
-        if (!option) return;
+        // Preserve the visible option number even after a hint removes a
+        // wrong answer. Filtering disabled buttons shifted shortcut indices.
+        const option = quizOptions.querySelectorAll("button")[Number(key) - 1];
+        if (!option || option.disabled || option.hidden) return;
         event.preventDefault();
         option.click();
+    } else if ((key === "arrowleft" || key === "arrowright") && !quizAnswered) {
+        const options = [...quizOptions.querySelectorAll("button")]
+            .filter(button => !button.disabled && !button.hidden);
+        if (!options.length) return;
+        const current = options.indexOf(document.activeElement);
+        const direction = key === "arrowright" ? 1 : -1;
+        const next = current < 0 ? 0 : (current + direction + options.length) % options.length;
+        event.preventDefault();
+        options[next].focus();
     } else if (key === "h" && !quizHint.disabled && !quizHint.hidden) {
         event.preventDefault();
         quizHint.click();
