@@ -502,6 +502,23 @@ quizHint.addEventListener("click", () => {
     quizHintUsed = true;
     quizHintsUsed++;
 });
+// Interleave training questions by type whenever the selected collection
+// permits it. This prevents a review of saved mistakes from presenting a
+// long uninterrupted series of near-identical type silhouettes.
+function spaceQuizQuestions(cards) {
+    const remaining = shuffleQuiz(cards);
+    const arranged = [];
+    while (remaining.length) {
+        const previous = arranged[arranged.length - 1];
+        const previousTypes = new Set(Array.isArray(previous?.types) ? previous.types : []);
+        const alternative = previousTypes.size
+            ? remaining.findIndex(card => Array.isArray(card.types) &&
+                card.types.every(type => !previousTypes.has(type))) : -1;
+        const index = alternative >= 0 ? alternative : 0;
+        arranged.push(remaining.splice(index, 1)[0]);
+    }
+    return arranged;
+}
 function startQuiz(review = false) {
     if (quizCards.length < 4) return;
     const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
@@ -535,7 +552,7 @@ function startQuiz(review = false) {
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
     const requested = Number(quizLength.value) || 10;
-    quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, requested);
+    quizQuestions = spaceQuizQuestions(quizIsReview ? reviewPool : shuffleQuiz(pool).slice(0, requested));
     quizRoundSize = quizQuestions.length;
     quizMissed = [];
     quizTypeStats = new Map();
