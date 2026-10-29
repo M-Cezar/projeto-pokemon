@@ -251,9 +251,13 @@ const shuffleQuiz = items => {
 };
 // Separate records by selected training type; never mix electric and grass
 // specialist rounds with full-collection or captured-only records.
+// A type filter outside the dialog can change while a round is open.
+// Snapshot the collection so results cannot be stored under another type.
+let activeQuizCollection = "todos";
+let activeQuizType = "";
 function quizCollectionRecordSuffix() {
-    if (quizCollection.value === "capturados") return ":capturados";
-    if (quizCollection.value === "tipo") return ":tipo:" + normalizarBusca(seletorTipo.value);
+    if (activeQuizCollection === "capturados") return ":capturados";
+    if (activeQuizCollection === "tipo") return ":tipo:" + activeQuizType;
     return "";
 }
 function quizRecordKey() {
@@ -490,6 +494,8 @@ function startQuiz(review = false) {
             " (" + typePool.length + ")"
         : "Somente tipo selecionado (escolha um filtro)";
     if (typeOption.disabled && quizCollection.value === "tipo") quizCollection.value = "todos";
+    activeQuizCollection = quizCollection.value;
+    activeQuizType = selectedType;
     const pool = quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
         : quizCollection.value === "tipo" ? typePool : quizCards;
