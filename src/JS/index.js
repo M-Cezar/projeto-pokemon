@@ -424,7 +424,11 @@ function showQuizQuestion() {
     const difficultyScore = card => {
         const name = normalizarBusca(card.name);
         const sharedTypes = card.types.filter(type => current.types.includes(type)).length;
+        // In specialist rounds, previously missed species become useful
+        // distractors. Their appearance does not count as another mistake.
         return sharedTypes * 10 +
+            (quizPracticeNumbers.has(card.number) ? 3 : 0) +
+            Math.round(quizTypeWeakness(card) * 3) +
             (name.charAt(0) === targetName.charAt(0) ? 2 : 0) +
             (Math.abs(name.length - targetName.length) <= 2 ? 1 : 0);
     };
@@ -681,6 +685,8 @@ function finishQuiz() {
     quizFeedback.textContent += " Maior sequência: " + quizBestStreak +
         (quizIsReview ? "" : " (recorde: " + streakRecord + ")") +
         ". Dicas utilizadas: " + quizHintsUsed + ".";
+    const accuracy = quizRoundSize ? Math.round(100 * quizCorrect / quizRoundSize) : 0;
+    quizFeedback.textContent += " Precisão: " + accuracy + "%.";
     quizFeedback.textContent += " Perguntas puladas: " + quizSkipped + ".";
     // Name the missed silhouettes for targeted practice without storing a
     // separate history or changing the original session's score.
