@@ -273,6 +273,9 @@ let quizQuestions = [];
 // Keep the selected collection stable throughout an active quiz. Capture
 // changes from other tabs apply to the next game, not mid-question choices.
 let quizChoicePool = [];
+// Keep consecutive questions from recycling the same wrong answers.
+// The question pool and correct answer remain unchanged.
+let quizPreviousDistractors = new Set();
 let quizIndex = 0;
 let quizCorrect = 0;
 let quizAnswered = false;
@@ -321,7 +324,11 @@ function showQuizQuestion() {
     quizImage.classList.remove("revelada");
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
-    const distractors = shuffleQuiz(quizChoicePool.filter(card => card.number !== current.number)).slice(0, choices);
+    const candidateDistractors = quizChoicePool.filter(card => card.number !== current.number);
+    const fresh = shuffleQuiz(candidateDistractors.filter(card => !quizPreviousDistractors.has(card.number)));
+    const repeats = shuffleQuiz(candidateDistractors.filter(card => quizPreviousDistractors.has(card.number)));
+    const distractors = [...fresh, ...repeats].slice(0, choices);
+    quizPreviousDistractors = new Set(distractors.map(card => card.number));
     for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
         const option = document.createElement("button");
         option.type = "button";
@@ -412,6 +419,7 @@ function startQuiz(review = false) {
     const reviewPool = review ? [...quizMissed] : [];
     quizIsReview = review && reviewPool.length > 0;
     quizChoicePool = quizIsReview ? [...quizCards] : [...pool];
+    quizPreviousDistractors.clear();
     const requested = Number(quizLength.value) || 10;
     quizQuestions = quizIsReview ? shuffleQuiz(reviewPool) : shuffleQuiz(pool).slice(0, requested);
     quizRoundSize = quizQuestions.length;
