@@ -276,7 +276,7 @@ quizFeedback.setAttribute("role", "status");
 quizFeedback.setAttribute("aria-live", "polite");
 const quizKeyboardHelp = document.createElement("p");
 quizKeyboardHelp.className = "quiz-atalhos";
-quizKeyboardHelp.textContent = "Atalhos: 1 a 6 responder · H dica · S pular · N avançar.";
+quizKeyboardHelp.textContent = "Atalhos: 1 a 6 responder · setas navegar · Home/End primeira ou última · H dica · S pular · N avançar.";
 const quizHint = document.createElement("button");
 quizHint.type = "button";
 quizHint.className = "quiz-dica";
@@ -381,9 +381,11 @@ function quizPointsRecord() {
 function updateQuizScore() {
     quizProgress.max = quizRoundSize;
     quizProgress.value = Math.min(quizRoundSize, quizIndex + (quizAnswered ? 1 : 0));
+    const answered = Math.min(quizRoundSize, quizIndex + (quizAnswered ? 1 : 0));
+    const accuracy = answered ? Math.round(100 * quizCorrect / answered) : 0;
     quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizRoundSize) + "/" + quizRoundSize +
         " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
-        " · Sequência: " + quizStreak +
+        " · Sequência: " + quizStreak + " · Precisão: " + accuracy + "%" +
         (quizIsReview ? " · Revisão de erros" :
             " · Recorde: " + quizRecord() + " · Recorde de pontos: " + quizPointsRecord() +
             " · Melhor sequência: " + quizStreakRecord());
@@ -733,6 +735,12 @@ document.addEventListener("keydown", event => {
         const next = current < 0 ? 0 : (current + direction + options.length) % options.length;
         event.preventDefault();
         options[next].focus();
+    } else if ((key === "home" || key === "end") && !quizAnswered) {
+        const options = [...quizOptions.querySelectorAll("button")]
+            .filter(button => !button.disabled && !button.hidden);
+        if (!options.length) return;
+        event.preventDefault();
+        options[key === "home" ? 0 : options.length - 1].focus();
     } else if (key === "h" && !quizHint.disabled && !quizHint.hidden) {
         event.preventDefault();
         quizHint.click();
