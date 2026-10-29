@@ -244,6 +244,17 @@ function quizPointsRecordKey() {
         (quizCollection.value === "capturados" ? ":capturados" : "") +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
+function quizStreakRecordKey() {
+    return QUIZ_KEY + ":sequencia:" + quizDifficulty.value +
+        (quizCollection.value === "capturados" ? ":capturados" : "") +
+        (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
+}
+function quizStreakRecord() {
+    try {
+        const saved = Number(localStorage.getItem(quizStreakRecordKey()));
+        return Number.isSafeInteger(saved) && saved >= 0 && saved <= quizRoundSize ? saved : 0;
+    } catch { return 0; }
+}
 function quizRecord() {
     try {
         const key = quizRecordKey();
@@ -277,7 +288,8 @@ function updateQuizScore() {
         " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
         " · Sequência: " + quizStreak +
         (quizIsReview ? " · Revisão de erros" :
-            " · Recorde: " + quizRecord() + " · Recorde de pontos: " + quizPointsRecord());
+            " · Recorde: " + quizRecord() + " · Recorde de pontos: " + quizPointsRecord() +
+            " · Melhor sequência: " + quizStreakRecord());
 }
 
 function showQuizQuestion() {
@@ -408,11 +420,14 @@ function startQuiz(review = false) {
 function finishQuiz() {
     const best = quizIsReview ? null : Math.max(quizRecord(), quizCorrect);
     const pointRecord = quizIsReview ? null : Math.max(quizPointsRecord(), quizPoints);
+    const streakRecord = quizIsReview ? null : Math.max(quizStreakRecord(), quizBestStreak);
     if (!quizIsReview) {
         try { localStorage.setItem(quizRecordKey(), String(best)); }
         catch { /* O placar da sessão continua disponível. */ }
         try { localStorage.setItem(quizPointsRecordKey(), String(pointRecord)); }
         catch { /* O resultado ainda aparece sem armazenamento. */ }
+        try { localStorage.setItem(quizStreakRecordKey(), String(streakRecord)); }
+        catch { /* A sequência da sessão continua visível. */ }
     }
     quizIndex = quizRoundSize;
     quizImage.hidden = true;
@@ -426,7 +441,9 @@ function finishQuiz() {
     quizFeedback.textContent = quizCorrect === quizRoundSize
         ? "Sequência perfeita! Todos os Pokémon identificados."
         : "Partida concluída. Tente superar seu recorde.";
-    quizFeedback.textContent += " Maior sequência: " + quizBestStreak + ". Dicas utilizadas: " + quizHintsUsed + ".";
+    quizFeedback.textContent += " Maior sequência: " + quizBestStreak +
+        (quizIsReview ? "" : " (recorde: " + streakRecord + ")") +
+        ". Dicas utilizadas: " + quizHintsUsed + ".";
     quizFeedback.textContent += " Perguntas puladas: " + quizSkipped + ".";
     quizReview.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
