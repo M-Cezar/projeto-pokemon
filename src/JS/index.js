@@ -333,8 +333,25 @@ function showQuizQuestion() {
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
     const candidateDistractors = quizChoicePool.filter(card => card.number !== current.number);
-    const fresh = shuffleQuiz(candidateDistractors.filter(card => !quizPreviousDistractors.has(card.number)));
-    const repeats = shuffleQuiz(candidateDistractors.filter(card => quizPreviousDistractors.has(card.number)));
+    // Specialist rounds choose convincing alternatives, favoring shared types
+    // and similar names. Shuffle first to avoid always choosing the same
+    // Pokémon on equal scores; normal and easy rounds remain randomized.
+    const targetName = normalizarBusca(current.name);
+    const difficultyScore = card => {
+        const name = normalizarBusca(card.name);
+        const sharedTypes = card.types.filter(type => current.types.includes(type)).length;
+        return sharedTypes * 10 +
+            (name.charAt(0) === targetName.charAt(0) ? 2 : 0) +
+            (Math.abs(name.length - targetName.length) <= 2 ? 1 : 0);
+    };
+    const rankDistractors = cards => {
+        const shuffled = shuffleQuiz(cards);
+        return quizDifficulty.value === "especialista"
+            ? shuffled.sort((a, b) => difficultyScore(b) - difficultyScore(a))
+            : shuffled;
+    };
+    const fresh = rankDistractors(candidateDistractors.filter(card => !quizPreviousDistractors.has(card.number)));
+    const repeats = rankDistractors(candidateDistractors.filter(card => quizPreviousDistractors.has(card.number)));
     const distractors = [...fresh, ...repeats].slice(0, choices);
     quizPreviousDistractors = new Set(distractors.map(card => card.number));
     for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
@@ -366,9 +383,11 @@ function showQuizQuestion() {
                 if (button.textContent === current.name) button.classList.add("correta");
                 else if (button === option) button.classList.add("incorreta");
             }
-            quizFeedback.textContent = correct
+            const learningDetail = current.types.length
+                ? " Tipo: " + current.types.join(" e ") + "." : "";
+            quizFeedback.textContent = (correct
                 ? "Acertou! " + current.name + "."
-                : "Resposta correta: " + current.name + ".";
+                : "Resposta correta: " + current.name + ".") + learningDetail;
             updateQuizScore();
             quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
             quizNext.hidden = false;
@@ -393,7 +412,9 @@ quizSkip.addEventListener("click", () => {
         button.disabled = true;
         if (button.textContent === current.name) button.classList.add("correta");
     }
-    quizFeedback.textContent = "Pergunta pulada. Resposta: " + current.name + ". Incluída na revisão.";
+    quizFeedback.textContent = "Pergunta pulada. Resposta: " + current.name +
+        (current.types.length ? ". Tipo: " + current.types.join(" e ") : "") +
+        ". Incluída na revisão.";
     updateQuizScore();
     quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
     quizNext.hidden = false;
