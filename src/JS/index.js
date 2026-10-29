@@ -188,6 +188,11 @@ for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "So
 quizCollectionLabel.append(quizCollection);
 const quizScore = document.createElement("p");
 quizScore.className = "quiz-placar";
+const quizProgress = document.createElement("progress");
+quizProgress.className = "quiz-progresso";
+quizProgress.setAttribute("aria-label", "Perguntas concluídas no quiz");
+quizProgress.max = quizRoundSize;
+quizProgress.value = 0;
 const quizImage = document.createElement("img");
 quizImage.className = "quiz-silhueta";
 quizImage.alt = "Silhueta de um Pokémon misterioso";
@@ -223,7 +228,7 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -284,6 +289,8 @@ function quizPointsRecord() {
     } catch { return 0; }
 }
 function updateQuizScore() {
+    quizProgress.max = quizRoundSize;
+    quizProgress.value = Math.min(quizRoundSize, quizIndex + (quizAnswered ? 1 : 0));
     quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizRoundSize) + "/" + quizRoundSize +
         " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
         " · Sequência: " + quizStreak +
@@ -430,6 +437,8 @@ function finishQuiz() {
         catch { /* A sequência da sessão continua visível. */ }
     }
     quizIndex = quizRoundSize;
+    quizProgress.max = quizRoundSize;
+    quizProgress.value = quizRoundSize;
     quizImage.hidden = true;
     quizHint.hidden = true;
     quizSkip.hidden = true;
@@ -476,7 +485,7 @@ document.addEventListener("keydown", event => {
     if (!quizDialog.open || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement ||
-        target instanceof HTMLTextAreaElement) return;
+        target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
     const key = event.key.toLowerCase();
     if (/^[1-6]$/.test(key) && !quizAnswered) {
         const option = quizOptions.querySelectorAll("button:not(:disabled)")[Number(key) - 1];
@@ -492,6 +501,14 @@ document.addEventListener("keydown", event => {
     } else if (key === "n" && !quizNext.hidden && !quizNext.disabled) {
         event.preventDefault();
         quizNext.click();
+    }
+});
+// Records can improve in another tab while this quiz is open. Refresh the
+// visible best score without altering the active question or session points.
+window.addEventListener("storage", event => {
+    if (!quizDialog.open || quizIndex >= quizRoundSize) return;
+    if (event.key === null || (event.key && event.key.startsWith(QUIZ_KEY))) {
+        updateQuizScore();
     }
 });
 quizClose.addEventListener("click", () => quizDialog.close());
