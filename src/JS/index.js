@@ -219,7 +219,7 @@ const quizHint = document.createElement("button");
 quizHint.type = "button";
 quizHint.className = "quiz-dica";
 quizHint.textContent = "Revelar dica";
-quizHint.setAttribute("aria-label", "Revelar a primeira letra do Pokémon misterioso");
+quizHint.setAttribute("aria-label", "Revelar dicas progressivas do Pokémon misterioso");
 const quizSkip = document.createElement("button");
 quizSkip.type = "button";
 quizSkip.className = "quiz-pular";
@@ -438,9 +438,20 @@ quizHint.addEventListener("click", () => {
         quizFeedback.textContent = "Dica 1: o nome começa com " + current.name.charAt(0).toUpperCase() + ".";
         quizHint.textContent = "Revelar tipo ou tamanho";
         quizHint.setAttribute("aria-label", "Revelar uma segunda dica sobre o Pokémon");
-    } else {
+    } else if (quizHintLevel === 1) {
         const typeText = current.types.length ? current.types.join(" e ") : current.name.length + " letras";
         quizFeedback.textContent += " Dica 2: " + (current.types.length ? "tipo " : "nome com ") + typeText + ".";
+        quizHint.textContent = "Eliminar uma alternativa errada";
+        quizHint.setAttribute("aria-label", "Eliminar uma opção incorreta da pergunta");
+    } else {
+        const wrong = [...quizOptions.querySelectorAll("button")]
+            .filter(button => !button.disabled && button.textContent !== current.name);
+        if (wrong.length) {
+            const eliminated = wrong[Math.floor(Math.random() * wrong.length)];
+            eliminated.disabled = true;
+            eliminated.hidden = true;
+            quizFeedback.textContent += " Dica 3: uma alternativa incorreta foi eliminada.";
+        }
         quizHint.disabled = true;
     }
     quizHintLevel++;
