@@ -161,6 +161,36 @@ window.addEventListener("storage", event => {
 });
 let quizRoundSize = Math.min(10, quizCards.length);
 let quizTypeStats = new Map();
+// Track mastery per catalog type across sessions, without remote requests or
+// personal data. Invalid/oversized saved values are ignored on restoration.
+const QUIZ_TYPE_HISTORY_KEY = "pokedex:quiz-tipos:v1";
+function loadQuizTypeHistory() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(QUIZ_TYPE_HISTORY_KEY) || "[]");
+        const known = new Set(quizCards.flatMap(card => card.types));
+        const entries = Array.isArray(raw) ? raw.slice(0, 32) : [];
+        const history = new Map();
+        for (const entry of entries) {
+            if (!Array.isArray(entry) || entry.length !== 2 || !known.has(entry[0])) continue;
+            const stats = entry[1];
+            if (!stats || !Number.isSafeInteger(stats.asked) ||
+                !Number.isSafeInteger(stats.correct) || stats.asked < 0 ||
+                stats.asked > 9999 || stats.correct < 0 || stats.correct > stats.asked) continue;
+            history.set(entry[0], {asked: stats.asked, correct: stats.correct});
+        }
+        return history;
+    } catch { return new Map(); }
+}
+let quizTypeHistory = loadQuizTypeHistory();
+function saveQuizTypeHistory() {
+    try { localStorage.setItem(QUIZ_TYPE_HISTORY_KEY,
+        JSON.stringify([...quizTypeHistory].slice(0, 32))); }
+    catch { /* Persistent mastery is optional. */ }
+}
+window.addEventListener("storage", event => {
+    if (event.key === QUIZ_TYPE_HISTORY_KEY || event.key === null)
+        quizTypeHistory = loadQuizTypeHistory();
+});
 function recordQuizTypeResult(pokemon, correct) {
     if (correct) quizPracticeNumbers.delete(pokemon.number);
     else quizPracticeNumbers.add(pokemon.number);
@@ -170,7 +200,15 @@ function recordQuizTypeResult(pokemon, correct) {
         current.asked++;
         if (correct) current.correct++;
         quizTypeStats.set(type, current);
+        const history = quizTypeHistory.get(type) || {asked: 0, correct: 0};
+        // Saturate rather than storing unbounded counters indefinitely.
+        if (history.asked < 9999) {
+            history.asked++;
+            if (correct) history.correct++;
+        }
+        quizTypeHistory.set(type, history);
     }
+    saveQuizTypeHistory();
 }
 const quizButton = document.createElement("button");
 quizButton.type = "button";
@@ -635,6 +673,16 @@ function finishQuiz() {
                 type + " (" + stats.correct + "/" + stats.asked + " acertos)").join(", ") + ".";
     } else if (quizTypeStats.size) {
         quizFeedback.textContent += " Todos os tipos desta rodada foram identificados corretamente.";
+    }
+    const historicalPractice = [...quizTypeHistory.entries()]
+        .filter(([, stats]) => stats.asked >= 3 && stats.correct < stats.asked)
+        .sort((a, b) => (b[1].asked - b[1].correct) -
+            (a[1].asked - a[1].correct) || a[0].localeCompare(b[0], "pt-BR"))
+        .slice(0, 3);
+    if (historicalPractice.length) {
+        quizFeedback.textContent += " Histórico de treino: " +
+            historicalPractice.map(([type, stats]) =>
+                type + " (" + stats.correct + "/" + stats.asked + ")").join(", ") + ".";
     }
     quizReview.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
