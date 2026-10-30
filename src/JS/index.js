@@ -428,6 +428,7 @@ quizCollectionLabel.className = "quiz-colecao";
 quizCollectionLabel.textContent = "Perguntas: ";
 const quizCollection = document.createElement("select");
 for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "Somente capturados"],
+    ["pendentes", "Somente ainda não capturados"],
     ["tipo", "Somente tipo selecionado"], ["erros", "Praticar erros salvos"]]) {
     const option = document.createElement("option");
     option.value = value;
@@ -817,6 +818,11 @@ function startQuiz(review = false, focusType = null) {
     capturedOption.disabled = capturedCount < 4;
     capturedOption.textContent = "Somente capturados (" + capturedCount + ")";
     if (capturedCount < 4 && quizCollection.value === "capturados") quizCollection.value = "todos";
+    const pendingCount = quizCards.length - capturedCount;
+    const pendingOption = quizCollection.querySelector('option[value="pendentes"]');
+    pendingOption.disabled = pendingCount < 4;
+    pendingOption.textContent = "Ainda não capturados (" + pendingCount + ")";
+    if (pendingOption.disabled && quizCollection.value === "pendentes") quizCollection.value = "todos";
     const selectedType = normalizarBusca(seletorTipo.value);
     const typePool = selectedType ? quizCards.filter(card =>
         card.types.some(type => normalizarBusca(type) === selectedType)) : [];
@@ -839,6 +845,8 @@ function startQuiz(review = false, focusType = null) {
     activeQuizType = useFocus ? focusType : selectedType;
     const pool = useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
+        : quizCollection.value === "pendentes"
+            ? quizCards.filter(card => !capturados.has(card.number))
         : quizCollection.value === "tipo" ? typePool
         : quizCollection.value === "erros" ? mistakesPool : quizCards;
     const reviewPool = review ? [...quizMissed] : [];
