@@ -481,6 +481,11 @@ const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
 quizClose.textContent = "Fechar quiz";
+const quizExportMistakes = document.createElement("button");
+quizExportMistakes.type = "button";
+quizExportMistakes.className = "quiz-revisao";
+quizExportMistakes.textContent = "Exportar erros desta rodada (CSV)";
+quizExportMistakes.hidden = true;
 const quizWeakType = document.createElement("button");
 quizWeakType.type = "button";
 quizWeakType.className = "quiz-revisao";
@@ -541,7 +546,7 @@ quizHistoryImportStatus.setAttribute("aria-live", "polite");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizHistoryList, quizHistoryExport, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizHistoryDetails, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -1110,6 +1115,7 @@ function startQuiz(review = false, focusType = null) {
     quizTypeStats = new Map();
     quizReview.hidden = true;
     quizWeakType.hidden = true;
+    quizExportMistakes.hidden = true;
     quizIndex = 0;
     quizCorrect = 0;
     quizPoints = 0;
@@ -1195,6 +1201,7 @@ function finishQuiz() {
     }
     updateQuizTrainingSummary();
     quizReview.hidden = quizMissed.length === 0;
+    quizExportMistakes.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     const weakest = weakestQuizTrainingType();
     quizWeakType.hidden = weakest === null;
@@ -1275,6 +1282,35 @@ window.addEventListener("storage", event => {
     if (event.key === null || (event.key && event.key.startsWith(QUIZ_KEY))) {
         updateQuizScore();
     }
+});
+// The exported practice list is local and contains only missed species.
+// Exporting does not change scores, capture status or the saved error pool.
+quizExportMistakes.addEventListener("click", () => {
+    if (!quizMissed.length || quizIndex < quizQuestions.length) return;
+    const unique = new Map();
+    for (const card of quizMissed) {
+        if (card && typeof card.number === "string" && !unique.has(card.number))
+            unique.set(card.number, card);
+    }
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 128);
+        if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const rows = [["Número", "Pokémon", "Dificuldade", "Modalidade"],
+        ...[...unique.values()].map(card => [
+            card.number, card.name, activeQuizDifficulty,
+            quizIsReview ? "revisão" : activeQuizCollection
+        ])];
+    const csv = "\ufeff" + rows.map(row => row.map(cell).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-revisar-erros.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
