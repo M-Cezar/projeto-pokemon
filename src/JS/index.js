@@ -493,13 +493,24 @@ const quizHistorySummary = document.createElement("summary");
 quizHistorySummary.textContent = "Últimas rodadas";
 const quizHistoryStats = document.createElement("p");
 quizHistoryStats.setAttribute("aria-live", "polite");
+const quizHistoryFilter = document.createElement("select");
+quizHistoryFilter.setAttribute("aria-label", "Filtrar histórico pela dificuldade");
+for (const [value, label] of [
+    ["todos", "Todas as dificuldades"], ["facil", "Fácil"],
+    ["normal", "Normal"], ["especialista", "Especialista"]
+]) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    quizHistoryFilter.append(option);
+}
 const quizHistoryList = document.createElement("ol");
 const quizHistoryExport = document.createElement("button");
 quizHistoryExport.type = "button";
 quizHistoryExport.className = "quiz-revisao";
 quizHistoryExport.textContent = "Exportar histórico (CSV)";
 quizHistoryExport.setAttribute("aria-label", "Exportar as últimas rodadas de treino para CSV");
-quizHistoryDetails.append(quizHistorySummary, quizHistoryStats, quizHistoryList, quizHistoryExport);
+quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryStats, quizHistoryList, quizHistoryExport);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
 
@@ -603,20 +614,25 @@ function loadQuizSessions() {
     } catch { return []; }
 }
 let quizSessions = loadQuizSessions();
+function selectedQuizSessions() {
+    return quizHistoryFilter.value === "todos" ? quizSessions :
+        quizSessions.filter(session => session.difficulty === quizHistoryFilter.value);
+}
 function renderQuizSessions() {
+    const selected = selectedQuizSessions();
     quizHistoryList.replaceChildren();
-    quizHistorySummary.textContent = "Últimas rodadas (" + quizSessions.length + ")";
-    quizHistoryExport.disabled = quizSessions.length === 0;
-    const totalQuestions = quizSessions.reduce((sum, session) => sum + session.total, 0);
+    quizHistorySummary.textContent = "Últimas rodadas (" + selected.length + "/" + quizSessions.length + ")";
+    quizHistoryExport.disabled = selected.length === 0;
+    const totalQuestions = selected.reduce((sum, session) => sum + session.total, 0);
     const totalCorrect = quizSessions.reduce((sum, session) => sum + session.correct, 0);
-    const best = quizSessions.reduce((value, session) =>
+    const best = selected.reduce((value, session) =>
         Math.max(value, session.total ? Math.round(100 * session.correct / session.total) : 0), 0);
     const totalPoints = quizSessions.reduce((sum, session) => sum + session.points, 0);
     quizHistoryStats.textContent = totalQuestions
         ? "Precisão nas últimas rodadas: " + Math.round(100 * totalCorrect / totalQuestions) +
           "% · Melhor precisão: " + best + "% · Pontos acumulados: " + totalPoints
         : "Conclua uma rodada para acompanhar sua evolução.";
-    for (const session of quizSessions) {
+    for (const session of selected) {
         const item = document.createElement("li");
         item.textContent = new Date(session.at).toLocaleString("pt-BR") +
             " · " + session.mode + " · " + session.difficulty +
@@ -624,7 +640,7 @@ function renderQuizSessions() {
             " acertos · " + session.points + " pontos";
         quizHistoryList.append(item);
     }
-    if (!quizSessions.length) {
+    if (!selected.length) {
         const item = document.createElement("li");
         item.textContent = "Nenhuma rodada concluída neste navegador.";
         quizHistoryList.append(item);
@@ -642,8 +658,10 @@ function recordQuizSession() {
     renderQuizSessions();
 }
 renderQuizSessions();
+quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryExport.addEventListener("click", () => {
-    if (!quizSessions.length) return;
+    const selected = selectedQuizSessions();
+    if (!selected.length) return;
     const cell = value => {
         let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 128);
         if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
@@ -651,7 +669,7 @@ quizHistoryExport.addEventListener("click", () => {
     };
     const rows = [
         ["Data", "Modalidade", "Dificuldade", "Perguntas", "Acertos", "Precisão (%)", "Pontos"],
-        ...quizSessions.map(session => [
+        ...selected.map(session => [
             new Date(session.at).toISOString(), session.mode, session.difficulty,
             session.total, session.correct, Math.round(100 * session.correct / session.total),
             session.points
