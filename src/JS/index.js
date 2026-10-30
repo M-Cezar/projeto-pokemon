@@ -491,8 +491,10 @@ const quizHistoryDetails = document.createElement("details");
 quizHistoryDetails.className = "quiz-historico";
 const quizHistorySummary = document.createElement("summary");
 quizHistorySummary.textContent = "Últimas rodadas";
+const quizHistoryStats = document.createElement("p");
+quizHistoryStats.setAttribute("aria-live", "polite");
 const quizHistoryList = document.createElement("ol");
-quizHistoryDetails.append(quizHistorySummary, quizHistoryList);
+quizHistoryDetails.append(quizHistorySummary, quizHistoryStats, quizHistoryList);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
 
@@ -586,6 +588,15 @@ let quizSessions = loadQuizSessions();
 function renderQuizSessions() {
     quizHistoryList.replaceChildren();
     quizHistorySummary.textContent = "Últimas rodadas (" + quizSessions.length + ")";
+    const totalQuestions = quizSessions.reduce((sum, session) => sum + session.total, 0);
+    const totalCorrect = quizSessions.reduce((sum, session) => sum + session.correct, 0);
+    const best = quizSessions.reduce((value, session) =>
+        Math.max(value, session.total ? Math.round(100 * session.correct / session.total) : 0), 0);
+    const totalPoints = quizSessions.reduce((sum, session) => sum + session.points, 0);
+    quizHistoryStats.textContent = totalQuestions
+        ? "Precisão nas últimas rodadas: " + Math.round(100 * totalCorrect / totalQuestions) +
+          "% · Melhor precisão: " + best + "% · Pontos acumulados: " + totalPoints
+        : "Conclua uma rodada para acompanhar sua evolução.";
     for (const session of quizSessions) {
         const item = document.createElement("li");
         item.textContent = new Date(session.at).toLocaleString("pt-BR") +
