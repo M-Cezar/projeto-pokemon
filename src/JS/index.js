@@ -100,6 +100,77 @@ for (const cartao of cartoesPokemon) {
     atualizarBotao();
 }
 
+// Local capture backup. Imports only known IDs and never remove existing captures.
+const exportarCapturas = document.createElement("button");
+exportarCapturas.type = "button";
+exportarCapturas.className = "capturar-pokemon";
+exportarCapturas.textContent = "Exportar capturas";
+const importarCapturas = document.createElement("button");
+importarCapturas.type = "button";
+importarCapturas.className = "capturar-pokemon";
+importarCapturas.textContent = "Importar capturas";
+const arquivoCapturas = document.createElement("input");
+arquivoCapturas.type = "file";
+arquivoCapturas.accept = ".json,application/json";
+arquivoCapturas.hidden = true;
+const statusCapturas = document.createElement("span");
+statusCapturas.setAttribute("role", "status");
+statusCapturas.setAttribute("aria-live", "polite");
+if (filtros) {
+    filtros.insertBefore(exportarCapturas, resultadoBusca);
+    filtros.insertBefore(importarCapturas, resultadoBusca);
+    filtros.insertBefore(arquivoCapturas, resultadoBusca);
+    filtros.insertBefore(statusCapturas, resultadoBusca);
+}
+exportarCapturas.addEventListener("click", () => {
+    const payload = {schema: "pokedex-capturas-v1", capturados: [...capturados].sort()};
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], {type: "application/json"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokedex-capturas.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    statusCapturas.textContent = "Arquivo de capturas preparado.";
+});
+importarCapturas.addEventListener("click", () => arquivoCapturas.click());
+arquivoCapturas.addEventListener("change", async () => {
+    const file = arquivoCapturas.files?.[0];
+    arquivoCapturas.value = "";
+    if (!file) return;
+    if (file.size > 100_000) {
+        statusCapturas.textContent = "Arquivo muito grande para a coleção.";
+        return;
+    }
+    try {
+        const data = JSON.parse(await file.text());
+        if (data?.schema !== "pokedex-capturas-v1" || !Array.isArray(data.capturados) ||
+            data.capturados.length > numerosDisponiveis.size ||
+            !data.capturados.every(id => typeof id === "string" && numerosDisponiveis.has(id))) {
+            throw new Error("Formato de capturas inválido");
+        }
+        // Merge with the most recent local save, including other open tabs.
+        for (const id of carregarCapturas()) capturados.add(id);
+        const before = capturados.size;
+        for (const id of data.capturados) capturados.add(id);
+        salvarCapturas();
+        for (const cartao of cartoesPokemon) {
+            const marcado = capturados.has(numeroDoCartao(cartao));
+            const botao = cartao.querySelector("button.capturar-pokemon");
+            if (botao) {
+                botao.setAttribute("aria-pressed", String(marcado));
+                botao.textContent = marcado ? "Capturado" : "Marcar como capturado";
+            }
+            cartao.classList.toggle("capturado", marcado);
+        }
+        atualizarFiltros();
+        statusCapturas.textContent = `${capturados.size - before} novas capturas importadas sem apagar as existentes.`;
+    } catch {
+        statusCapturas.textContent = "Arquivo inválido. Nenhuma captura foi importada.";
+    }
+});
+
 function normalizarBusca(texto) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
