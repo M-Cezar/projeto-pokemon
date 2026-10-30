@@ -523,7 +523,24 @@ quizHistoryExport.type = "button";
 quizHistoryExport.className = "quiz-revisao";
 quizHistoryExport.textContent = "Exportar histórico (CSV)";
 quizHistoryExport.setAttribute("aria-label", "Exportar as últimas rodadas de treino para CSV");
-quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode, quizHistoryStats, quizHistoryList, quizHistoryExport);
+const quizHistoryBackup = document.createElement("button");
+quizHistoryBackup.type = "button";
+quizHistoryBackup.className = "quiz-revisao";
+quizHistoryBackup.textContent = "Salvar histórico (JSON)";
+const quizHistoryRestore = document.createElement("button");
+quizHistoryRestore.type = "button";
+quizHistoryRestore.className = "quiz-revisao";
+quizHistoryRestore.textContent = "Importar histórico (JSON)";
+const quizHistoryFile = document.createElement("input");
+quizHistoryFile.type = "file";
+quizHistoryFile.accept = ".json,application/json";
+quizHistoryFile.hidden = true;
+const quizHistoryImportStatus = document.createElement("p");
+quizHistoryImportStatus.setAttribute("role", "status");
+quizHistoryImportStatus.setAttribute("aria-live", "polite");
+quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
+    quizHistoryStats, quizHistoryList, quizHistoryExport, quizHistoryBackup,
+    quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
 
@@ -612,18 +629,22 @@ function loadRecentQuizNumbers() {
 }
 let recentQuizNumbers = loadRecentQuizNumbers();
 const QUIZ_SESSIONS_KEY = "pokedex:quiz-rodadas:v1";
+function validQuizSession(item) {
+    return item && typeof item === "object" && !Array.isArray(item) &&
+        typeof item.mode === "string" && item.mode.length > 0 && item.mode.length <= 64 &&
+        !/[\\x00-\\x1f\\x7f]/.test(item.mode) &&
+        ["facil", "normal", "especialista"].includes(item.difficulty) &&
+        Number.isSafeInteger(item.total) && item.total >= 1 && item.total <= 15 &&
+        Number.isSafeInteger(item.correct) && item.correct >= 0 && item.correct <= item.total &&
+        Number.isSafeInteger(item.points) && item.points >= 0 && item.points <= item.total * 2 &&
+        Number.isSafeInteger(item.at) && item.at >= 1577836800000 &&
+        item.at <= Date.now() + 86400000;
+}
 function loadQuizSessions() {
     try {
         const data = JSON.parse(localStorage.getItem(QUIZ_SESSIONS_KEY) || "[]");
         if (!Array.isArray(data)) return [];
-        return data.slice(0, 8).filter(item => item &&
-            typeof item.mode === "string" && item.mode.length <= 64 &&
-            ["facil", "normal", "especialista"].includes(item.difficulty) &&
-            Number.isSafeInteger(item.total) && item.total >= 1 && item.total <= 15 &&
-            Number.isSafeInteger(item.correct) && item.correct >= 0 && item.correct <= item.total &&
-            Number.isSafeInteger(item.points) && item.points >= 0 && item.points <= item.total * 2 &&
-            Number.isSafeInteger(item.at) && item.at >= 1577836800000 &&
-            item.at <= Date.now() + 86400000);
+        return data.slice(0, 8).filter(validQuizSession);
     } catch { return []; }
 }
 let quizSessions = loadQuizSessions();
@@ -643,6 +664,7 @@ function renderQuizSessions() {
     quizHistoryList.replaceChildren();
     quizHistorySummary.textContent = "Últimas rodadas (" + selected.length + "/" + quizSessions.length + ")";
     quizHistoryExport.disabled = selected.length === 0;
+    quizHistoryBackup.disabled = quizSessions.length === 0;
     const totalQuestions = selected.reduce((sum, session) => sum + session.total, 0);
     const totalCorrect = selected.reduce((sum, session) => sum + session.correct, 0);
     const best = selected.reduce((value, session) =>
@@ -705,6 +727,53 @@ quizHistoryExport.addEventListener("click", () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+// Portable local-only backup. Import merges valid rounds without erasing the
+// current history or changing quiz records and captured Pokémon.
+quizHistoryBackup.addEventListener("click", () => {
+    if (!quizSessions.length) return;
+    const payload = JSON.stringify({
+        schema: "pokedex-quiz-sessions-v1", exportedAt: new Date().toISOString(),
+        sessions: quizSessions
+    }, null, 2);
+    const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "historico-quiz-pokemon.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+quizHistoryRestore.addEventListener("click", () => quizHistoryFile.click());
+quizHistoryFile.addEventListener("change", async () => {
+    const file = quizHistoryFile.files?.[0];
+    if (!file) return;
+    try {
+        if (file.size > 32768) throw new Error("Arquivo acima de 32 KB.");
+        const data = JSON.parse(await file.text());
+        if (!data || data.schema !== "pokedex-quiz-sessions-v1" ||
+            !Array.isArray(data.sessions) || data.sessions.length > 8 ||
+            !data.sessions.every(validQuizSession)) {
+            throw new Error("Formato ou registros inválidos.");
+        }
+        const unique = new Map();
+        for (const session of [...quizSessions, ...data.sessions]) {
+            const key = [session.at, session.mode, session.difficulty,
+                session.total, session.correct, session.points].join("|");
+            unique.set(key, session);
+        }
+        const merged = [...unique.values()].sort((a, b) => b.at - a.at).slice(0, 8);
+        localStorage.setItem(QUIZ_SESSIONS_KEY, JSON.stringify(merged));
+        quizSessions = merged;
+        renderQuizSessions();
+        quizHistoryImportStatus.textContent = "Histórico importado sem substituir as rodadas existentes.";
+    } catch (error) {
+        quizHistoryImportStatus.textContent =
+            "Importação recusada: " + (error instanceof Error ? error.message : "erro de leitura.");
+    } finally {
+        quizHistoryFile.value = "";
+    }
 });
 window.addEventListener("storage", event => {
     if (event.key === QUIZ_SESSIONS_KEY || event.key === null) {
