@@ -657,9 +657,17 @@ quizReviewCalendarExport.className = "quiz-revisao";
 quizReviewCalendarExport.textContent = "Exportar agenda de revisões (CSV)";
 quizReviewCalendarExport.setAttribute("aria-label",
     "Exportar Pokémon agendados, intervalo e próxima revisão em CSV");
+// Calendar export uses only the player's local spaced-repetition schedule.
+// No account, capture history or personal identifier is uploaded.
+const quizReviewCalendarIcs = document.createElement("button");
+quizReviewCalendarIcs.type = "button";
+quizReviewCalendarIcs.className = "quiz-revisao";
+quizReviewCalendarIcs.textContent = "Adicionar revisões ao calendário (ICS)";
+quizReviewCalendarIcs.setAttribute("aria-label",
+    "Baixar lembretes de revisão espaçada para calendário local");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizWeeklyPlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizWeeklyPlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -1693,6 +1701,54 @@ quizReviewCalendarExport.addEventListener("click", () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+quizReviewCalendarIcs.addEventListener("click", () => {
+    const cards = new Map(quizCards.map(card => [card.number, card]));
+    const now = Date.now();
+    const stamp = time => new Date(time).toISOString()
+        .replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+    const escape = text => String(text).replace(/\\/g, "\\\\")
+        .replace(/\r?\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+    const entries = [...quizSpacedReviews]
+        .filter(([number, review]) => cards.has(number) &&
+            review && Number.isSafeInteger(review.dueAt) &&
+            review.dueAt > 0 && review.step >= 0 && review.step <= 2)
+        .sort((a, b) => a[1].dueAt - b[1].dueAt ||
+            a[0].localeCompare(b[0])).slice(0, 200);
+    if (!entries.length) {
+        quizHistoryImportStatus.textContent = "Nenhuma revisão agendada.";
+        return;
+    }
+    const events = entries.map(([number, review]) => {
+        const card = cards.get(number);
+        const start = Math.max(now, review.dueAt);
+        return [
+            "BEGIN:VEVENT",
+            "UID:pokemon-review-" + number + "-" + review.dueAt + "@local",
+            "DTSTAMP:" + stamp(now),
+            "DTSTART:" + stamp(start),
+            "DTEND:" + stamp(start + 15 * 60_000),
+            "SUMMARY:" + escape("Revisar Pokémon: " + card.name),
+            "DESCRIPTION:" + escape("Revisão espaçada de " + card.name +
+                ". Tipos: " + card.types.join(", ") +
+                ". Intervalo: " + [1, 3, 7][review.step] + " dia(s)."),
+            "END:VEVENT"
+        ].join("\r\n");
+    });
+    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0",
+        "PRODID:-//Pokemon Quiz//Revisoes locais//PT",
+        "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR", ""].join("\r\n");
+    const url = URL.createObjectURL(new Blob([ics],
+        {type:"text/calendar;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-revisoes.ics";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    quizHistoryImportStatus.textContent =
+        events.length + " lembrete(s) exportado(s) para calendário.";
 });
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
