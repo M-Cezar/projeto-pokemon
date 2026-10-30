@@ -1479,6 +1479,36 @@ quizExportMistakes.addEventListener("click", () => {
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+// Keyboard-first training without global shortcuts outside the open dialog.
+// Ignore modified keys and editable controls to preserve native interactions.
+const quizKeyboardHelp = document.createElement("p");
+quizKeyboardHelp.className = "quiz-keyboard-help";
+quizKeyboardHelp.textContent = "Atalhos: 1–5 responder, D dica, P pular, N próxima pergunta.";
+quizOptions.insertAdjacentElement("afterend", quizKeyboardHelp);
+quizHint.setAttribute("aria-keyshortcuts", "D");
+quizSkip.setAttribute("aria-keyshortcuts", "P");
+quizNext.setAttribute("aria-keyshortcuts", "N");
+quizDialog.addEventListener("keydown", event => {
+    if (!quizDialog.open || event.defaultPrevented || event.repeat ||
+        event.ctrlKey || event.altKey || event.metaKey ||
+        event.target?.closest?.('input,textarea,select,[contenteditable="true"]')) return;
+    const key = event.key.toLowerCase();
+    if (/^[1-5]$/.test(key) && !quizAnswered && quizIndex < quizQuestions.length) {
+        const option = quizOptions.querySelectorAll("button")[Number(key) - 1];
+        if (!option || option.disabled || option.hidden) return;
+        event.preventDefault();
+        option.click();
+    } else if (key === "d" && !quizAnswered && !quizHint.disabled && !quizHint.hidden) {
+        event.preventDefault();
+        quizHint.click();
+    } else if (key === "p" && !quizAnswered && !quizSkip.disabled && !quizSkip.hidden) {
+        event.preventDefault();
+        quizSkip.click();
+    } else if (key === "n" && quizAnswered && !quizNext.disabled && !quizNext.hidden) {
+        event.preventDefault();
+        quizNext.click();
+    }
+});
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
