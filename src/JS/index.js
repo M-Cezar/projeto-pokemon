@@ -498,6 +498,9 @@ const quizHistorySummary = document.createElement("summary");
 quizHistorySummary.textContent = "Últimas rodadas";
 const quizHistoryStats = document.createElement("p");
 quizHistoryStats.setAttribute("aria-live", "polite");
+const quizDailyProgress = document.createElement("p");
+quizDailyProgress.setAttribute("role", "status");
+quizDailyProgress.setAttribute("aria-live", "polite");
 const quizHistoryFilter = document.createElement("select");
 quizHistoryFilter.setAttribute("aria-label", "Filtrar histórico pela dificuldade");
 for (const [value, label] of [
@@ -551,7 +554,7 @@ const quizHistoryImportStatus = document.createElement("p");
 quizHistoryImportStatus.setAttribute("role", "status");
 quizHistoryImportStatus.setAttribute("aria-live", "polite");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
-    quizHistoryStats, quizHistoryRecommendation, quizHistoryPractice,
+    quizHistoryStats, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
     quizHistoryList, quizHistoryExport, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
@@ -661,6 +664,53 @@ function loadQuizSessions() {
     } catch { return []; }
 }
 let quizSessions = loadQuizSessions();
+// Daily practice progress is local to this browser and independent of
+// the eight-round history limit. Keep only seven local calendar days.
+const QUIZ_ACTIVITY_KEY = "pokedex:quiz-atividade:v1";
+function quizLocalDay(timestamp) {
+    const day = new Date(timestamp);
+    return day.getFullYear() + "-" +
+        String(day.getMonth() + 1).padStart(2, "0") + "-" +
+        String(day.getDate()).padStart(2, "0");
+}
+function recentQuizDays() {
+    const days = [];
+    for (let index = 0; index < 7; index++) {
+        const date = new Date();
+        date.setHours(12, 0, 0, 0);
+        date.setDate(date.getDate() - index);
+        days.push(quizLocalDay(date.getTime()));
+    }
+    return days;
+}
+function loadQuizActivity() {
+    let raw = {};
+    try { raw = JSON.parse(localStorage.getItem(QUIZ_ACTIVITY_KEY) || "{}"); }
+    catch { raw = {}; }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) raw = {};
+    const activity = {};
+    for (const day of recentQuizDays()) {
+        const stored = raw[day];
+        const fromHistory = quizSessions.filter(session =>
+            quizLocalDay(session.at) === day).length;
+        activity[day] = Math.max(
+            Number.isSafeInteger(stored) && stored >= 0 && stored <= 1000 ? stored : 0,
+            fromHistory
+        );
+    }
+    return activity;
+}
+let quizActivity = loadQuizActivity();
+function recordQuizActivity() {
+    const today = quizLocalDay(Date.now());
+    const allowed = recentQuizDays();
+    quizActivity = Object.fromEntries(allowed.map(day => [
+        day, day === today ? Math.min(1000, (quizActivity[day] || 0) + 1) :
+            (quizActivity[day] || 0)
+    ]));
+    try { localStorage.setItem(QUIZ_ACTIVITY_KEY, JSON.stringify(quizActivity)); }
+    catch { /* A meta continua disponível durante esta sessão. */ }
+}
 function selectedQuizSessions() {
     return quizSessions.filter(session => {
         if (quizHistoryFilter.value !== "todos" &&
@@ -694,6 +744,15 @@ function recommendedQuizDifficulty() {
 }
 function renderQuizSessions() {
     const selected = selectedQuizSessions();
+    const recentDays = recentQuizDays();
+    const todayCount = quizActivity[recentDays[0]] || 0;
+    const activeDays = recentDays.filter(day => (quizActivity[day] || 0) > 0).length;
+    const weeklyRounds = recentDays.reduce((sum, day) =>
+        sum + (quizActivity[day] || 0), 0);
+    quizDailyProgress.textContent = "Meta diária: " + Math.min(todayCount, 3) +
+        "/3 rodadas" + (todayCount >= 3 ? " · meta concluída" : "") +
+        " · Últimos 7 dias: " + weeklyRounds + " rodada(s) em " +
+        activeDays + " dia(s) de prática.";
     quizHistoryList.replaceChildren();
     quizHistorySummary.textContent = "Últimas rodadas (" + selected.length + "/" + quizSessions.length + ")";
     quizHistoryExport.disabled = selected.length === 0;
@@ -753,6 +812,7 @@ function recordQuizSession() {
     }, ...quizSessions].slice(0, 8);
     try { localStorage.setItem(QUIZ_SESSIONS_KEY, JSON.stringify(quizSessions)); }
     catch { /* History stays visible in this session. */ }
+    recordQuizActivity();
     renderQuizSessions();
 }
 renderQuizSessions();
