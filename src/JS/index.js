@@ -36,6 +36,29 @@ if (!progressoCaptura.id && filtros) {
     progressoCaptura.setAttribute("aria-live", "polite");
     filtros.insertBefore(progressoCaptura, resultadoBusca);
 }
+// Collection progress is local-only and independent of the silhouette quiz.
+let mostrarFaltantes = false;
+const filtroFaltantes = document.createElement("button");
+filtroFaltantes.type = "button";
+filtroFaltantes.className = "capturar-pokemon";
+filtroFaltantes.textContent = "Mostrar não capturados";
+filtroFaltantes.setAttribute("aria-pressed", "false");
+filtroFaltantes.setAttribute("aria-label", "Mostrar apenas Pokémon ainda não capturados");
+const barraColecao = document.createElement("progress");
+barraColecao.max = cartoesPokemon.length;
+barraColecao.value = 0;
+barraColecao.setAttribute("aria-label", "Progresso de captura da coleção");
+if (filtros) {
+    filtros.insertBefore(filtroFaltantes, resultadoBusca);
+    filtros.insertBefore(barraColecao, resultadoBusca);
+}
+filtroFaltantes.addEventListener("click", () => {
+    mostrarFaltantes = !mostrarFaltantes;
+    if (mostrarFaltantes) filtroCapturados.checked = false;
+    filtroFaltantes.setAttribute("aria-pressed", String(mostrarFaltantes));
+    filtroFaltantes.textContent = mostrarFaltantes ? "Exibindo não capturados" : "Mostrar não capturados";
+    atualizarFiltros();
+});
 const CHAVE_CAPTURAS = "pokedex:capturados:v1";
 const numeroDoCartao = cartao => cartao.querySelectorAll(".informacoes span")[1].textContent.trim();
 const numerosDisponiveis = new Set(cartoesPokemon.map(numeroDoCartao));
@@ -93,12 +116,16 @@ function atualizarFiltros() {
         const tipos = [...cartao.querySelectorAll(".tipos .tipo")];
         const combinaBusca = !termo || nome.includes(termo) || numero.includes(termo.replace("#", ""));
         const combinaTipo = !tipo || tipos.some(item => item.classList.contains(tipo));
-        const combinaCaptura = !filtroCapturados.checked || capturados.has(numeroDoCartao(cartao));
+        const combinaCaptura = (!filtroCapturados.checked || capturados.has(numeroDoCartao(cartao))) &&
+            (!mostrarFaltantes || !capturados.has(numeroDoCartao(cartao)));
         cartao.hidden = !(combinaBusca && combinaTipo && combinaCaptura);
         if (!cartao.hidden) visiveis += 1;
     }
 
-    progressoCaptura.textContent = `${capturados.size} de ${cartoesPokemon.length} Pokémon capturados.`;
+    barraColecao.value = capturados.size;
+    progressoCaptura.textContent = capturados.size === cartoesPokemon.length
+        ? `Coleção completa: ${capturados.size} Pokémon capturados.`
+        : `${capturados.size} de ${cartoesPokemon.length} Pokémon capturados. Faltam ${cartoesPokemon.length - capturados.size}.`;
     resultadoBusca.textContent = visiveis === 0
         ? "Nenhum Pokémon encontrado. Ajuste a busca ou o tipo."
         : `${visiveis} de ${cartoesPokemon.length} Pokémon exibidos.`;
@@ -106,7 +133,14 @@ function atualizarFiltros() {
 
 campoBusca.addEventListener("input", atualizarFiltros);
 seletorTipo.addEventListener("change", atualizarFiltros);
-filtroCapturados.addEventListener("change", atualizarFiltros);
+filtroCapturados.addEventListener("change", () => {
+    if (filtroCapturados.checked && mostrarFaltantes) {
+        mostrarFaltantes = false;
+        filtroFaltantes.setAttribute("aria-pressed", "false");
+        filtroFaltantes.textContent = "Mostrar não capturados";
+    }
+    atualizarFiltros();
+});
 atualizarFiltros();
 
 // Captures are local to this browser profile, but can change in another tab.
