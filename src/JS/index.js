@@ -494,7 +494,12 @@ quizHistorySummary.textContent = "Últimas rodadas";
 const quizHistoryStats = document.createElement("p");
 quizHistoryStats.setAttribute("aria-live", "polite");
 const quizHistoryList = document.createElement("ol");
-quizHistoryDetails.append(quizHistorySummary, quizHistoryStats, quizHistoryList);
+const quizHistoryExport = document.createElement("button");
+quizHistoryExport.type = "button";
+quizHistoryExport.className = "quiz-revisao";
+quizHistoryExport.textContent = "Exportar histórico (CSV)";
+quizHistoryExport.setAttribute("aria-label", "Exportar as últimas rodadas de treino para CSV");
+quizHistoryDetails.append(quizHistorySummary, quizHistoryStats, quizHistoryList, quizHistoryExport);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
 
@@ -601,6 +606,7 @@ let quizSessions = loadQuizSessions();
 function renderQuizSessions() {
     quizHistoryList.replaceChildren();
     quizHistorySummary.textContent = "Últimas rodadas (" + quizSessions.length + ")";
+    quizHistoryExport.disabled = quizSessions.length === 0;
     const totalQuestions = quizSessions.reduce((sum, session) => sum + session.total, 0);
     const totalCorrect = quizSessions.reduce((sum, session) => sum + session.correct, 0);
     const best = quizSessions.reduce((value, session) =>
@@ -636,6 +642,31 @@ function recordQuizSession() {
     renderQuizSessions();
 }
 renderQuizSessions();
+quizHistoryExport.addEventListener("click", () => {
+    if (!quizSessions.length) return;
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\\r\\n\\u2028\\u2029]/g, " ").slice(0, 128);
+        if (/^\\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const rows = [
+        ["Data", "Modalidade", "Dificuldade", "Perguntas", "Acertos", "Precisão (%)", "Pontos"],
+        ...quizSessions.map(session => [
+            new Date(session.at).toISOString(), session.mode, session.difficulty,
+            session.total, session.correct, Math.round(100 * session.correct / session.total),
+            session.points
+        ])
+    ];
+    const csv = "\\ufeff" + rows.map(row => row.map(cell).join(";")).join("\\r\\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "historico-quiz-pokemon.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 window.addEventListener("storage", event => {
     if (event.key === QUIZ_SESSIONS_KEY || event.key === null) {
         quizSessions = loadQuizSessions();
