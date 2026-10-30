@@ -645,8 +645,8 @@ renderQuizSessions();
 quizHistoryExport.addEventListener("click", () => {
     if (!quizSessions.length) return;
     const cell = value => {
-        let safe = String(value ?? "").replace(/[\\r\\n\\u2028\\u2029]/g, " ").slice(0, 128);
-        if (/^\\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 128);
+        if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
         return '"' + safe.replace(/"/g, '""') + '"';
     };
     const rows = [
@@ -657,7 +657,7 @@ quizHistoryExport.addEventListener("click", () => {
             session.points
         ])
     ];
-    const csv = "\\ufeff" + rows.map(row => row.map(cell).join(";")).join("\\r\\n");
+    const csv = "\ufeff" + rows.map(row => row.map(cell).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
