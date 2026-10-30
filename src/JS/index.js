@@ -1116,6 +1116,7 @@ function startQuiz(review = false, focusType = null) {
     quizReview.hidden = true;
     quizWeakType.hidden = true;
     quizExportMistakes.hidden = true;
+    quizStudyPlan.hidden = true;
     quizIndex = 0;
     quizCorrect = 0;
     quizPoints = 0;
@@ -1202,6 +1203,7 @@ function finishQuiz() {
     updateQuizTrainingSummary();
     quizReview.hidden = quizMissed.length === 0;
     quizExportMistakes.hidden = quizMissed.length === 0;
+    quizStudyPlan.hidden = false;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     const weakest = weakestQuizTrainingType();
     quizWeakType.hidden = weakest === null;
@@ -1285,6 +1287,52 @@ window.addEventListener("storage", event => {
 });
 // The exported practice list is local and contains only missed species.
 // Exporting does not change scores, capture status or the saved error pool.
+// Download a study plan from the completed round. It is a local snapshot,
+// not a change to captures, scores, achievements or the persistent error pool.
+const quizStudyPlan = document.createElement("button");
+quizStudyPlan.type = "button";
+quizStudyPlan.className = quizExportMistakes.className;
+quizStudyPlan.textContent = "Plano de estudo (JSON)";
+quizStudyPlan.hidden = true;
+quizExportMistakes.insertAdjacentElement("afterend", quizStudyPlan);
+quizStudyPlan.addEventListener("click", () => {
+    if (quizIndex < quizRoundSize || quizRoundSize === 0) return;
+    const accuracy = Math.round(100 * quizCorrect / quizRoundSize);
+    const weakestTypes = [...quizTypeStats.entries()]
+        .filter(([, stats]) => stats.asked > stats.correct)
+        .sort((a, b) => (b[1].asked - b[1].correct) -
+            (a[1].asked - a[1].correct) || a[0].localeCompare(b[0], "pt-BR"))
+        .slice(0, 5)
+        .map(([type, stats]) => ({
+            type, questions: stats.asked, correct: stats.correct,
+            remaining: stats.asked - stats.correct
+        }));
+    const missed = [...new Map(quizMissed
+        .filter(card => card && typeof card.number === "string")
+        .map(card => [card.number, { number: card.number, name: card.name,
+            types: [...card.types] }])).values()];
+    const plan = {
+        schema: "pokemon-study-plan-v1",
+        createdAt: new Date().toISOString(),
+        round: { difficulty: activeQuizDifficulty, collection: activeQuizCollection,
+            review: quizIsReview, questions: quizRoundSize, correct: quizCorrect,
+            points: quizPoints, accuracyPercent: accuracy, hints: quizHintsUsed,
+            skipped: quizSkipped },
+        recommendedFocus: missed.length ? "Revisar espécies não identificadas" :
+            accuracy >= 90 ? "Avançar para uma dificuldade maior" :
+            "Consolidar os tipos estudados",
+        weakestTypes, missed
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)],
+        { type: "application/json;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-plano-estudo.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 quizExportMistakes.addEventListener("click", () => {
     if (!quizMissed.length || quizIndex < quizQuestions.length) return;
     const unique = new Map();
