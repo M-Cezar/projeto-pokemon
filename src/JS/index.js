@@ -885,7 +885,7 @@ quizWeeklyPlan.addEventListener("click", async () => {
     }
     lines.push("O plano é orientativo e não altera recordes, capturas ou metas.");
     try {
-        await navigator.clipboard.writeText(lines.join("\\n"));
+        await navigator.clipboard.writeText(lines.join("\n"));
         quizHistoryImportStatus.textContent = "Plano semanal copiado.";
     } catch {
         quizHistoryImportStatus.textContent =
