@@ -679,6 +679,22 @@ function renderQuizSessions() {
         ? "Precisão nas últimas rodadas: " + Math.round(100 * totalCorrect / totalQuestions) +
           "% · Melhor precisão: " + best + "% · Pontos acumulados: " + totalPoints
         : "Conclua uma rodada para acompanhar sua evolução.";
+    // Compare up to three newest rounds with up to three earlier rounds.
+    // Weighted accuracy avoids inflating a short round against a longer one.
+    if (selected.length >= 4) {
+        const newest = selected.slice(0, 3);
+        const previous = selected.slice(3, 6);
+        const accuracyOf = rounds => {
+            const questions = rounds.reduce((sum, item) => sum + item.total, 0);
+            const correct = rounds.reduce((sum, item) => sum + item.correct, 0);
+            return questions ? Math.round(100 * correct / questions) : 0;
+        };
+        const change = accuracyOf(newest) - accuracyOf(previous);
+        quizHistoryStats.textContent += " · Tendência: " +
+            (change > 0 ? "+" : "") + change +
+            " p.p. (últimas " + newest.length + " vs. " +
+            previous.length + " anteriores)";
+    }
     for (const session of selected) {
         const item = document.createElement("li");
         item.textContent = new Date(session.at).toLocaleString("pt-BR") +
