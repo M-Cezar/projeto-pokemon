@@ -260,6 +260,9 @@ for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "So
 quizCollectionLabel.append(quizCollection);
 const quizScore = document.createElement("p");
 quizScore.className = "quiz-placar";
+const quizTrainingSummary = document.createElement("p");
+quizTrainingSummary.className = "quiz-treino-resumo";
+quizTrainingSummary.setAttribute("aria-live", "polite");
 const quizProgress = document.createElement("progress");
 quizProgress.className = "quiz-progresso";
 quizProgress.setAttribute("aria-label", "Perguntas concluídas no quiz");
@@ -305,7 +308,7 @@ quizWeakType.type = "button";
 quizWeakType.className = "quiz-revisao";
 quizWeakType.textContent = "Treinar tipo mais difícil";
 quizWeakType.hidden = true;
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -394,6 +397,30 @@ function updateQuizScore() {
         (quizIsReview ? " · Revisão de erros" :
             " · Recorde: " + quizRecord() + " · Recorde de pontos: " + quizPointsRecord() +
             " · Melhor sequência: " + quizStreakRecord());
+}
+
+// Explain why the adaptive trainer is choosing these questions. The
+// dashboard uses local aggregate statistics, never remote player tracking.
+function updateQuizTrainingSummary() {
+    const unresolved = quizCards.filter(card => quizPracticeNumbers.has(card.number));
+    const historical = [...quizTypeHistory.entries()]
+        .filter(([, stats]) => stats.asked >= 3)
+        .map(([type, stats]) => ({
+            type, attempts: stats.asked,
+            accuracy: Math.round(100 * stats.correct / stats.asked),
+            mistakes: stats.asked - stats.correct
+        }))
+        .sort((a, b) => a.accuracy - b.accuracy ||
+            b.attempts - a.attempts || a.type.localeCompare(b.type, "pt-BR"));
+    const weak = historical.slice(0, 3);
+    const practiced = quizCards.length - unresolved.length;
+    quizTrainingSummary.textContent =
+        "Treino adaptativo: " + unresolved.length + " Pokémon para revisar" +
+        " · " + practiced + "/" + quizCards.length + " fora da lista de erros." +
+        (weak.length ? " Tipos prioritários: " + weak.map(item =>
+            item.type + " (" + item.accuracy + "% de acertos em " +
+            item.attempts + " perguntas)").join(", ") + "." :
+            " Continue jogando para formar seu histórico por tipo.");
 }
 
 function showQuizQuestion() {
@@ -654,6 +681,7 @@ function startQuiz(review = false, focusType = null) {
     quizBestStreak = 0;
     quizHintsUsed = 0;
     quizSkipped = 0;
+    updateQuizTrainingSummary();
     showQuizQuestion();
 }
 function finishQuiz() {
@@ -720,6 +748,7 @@ function finishQuiz() {
             historicalPractice.map(([type, stats]) =>
                 type + " (" + stats.correct + "/" + stats.asked + ")").join(", ") + ".";
     }
+    updateQuizTrainingSummary();
     quizReview.hidden = quizMissed.length === 0;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     const weakest = weakestQuizTrainingType();
