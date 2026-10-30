@@ -502,25 +502,27 @@ const shuffleQuiz = items => {
 // A type filter outside the dialog can change while a round is open.
 // Snapshot the collection so results cannot be stored under another type.
 let activeQuizCollection = "todos";
+let activeQuizDifficulty = "normal";
 let activeQuizType = "";
 function quizCollectionRecordSuffix() {
     if (activeQuizCollection === "capturados") return ":capturados";
+    if (activeQuizCollection === "pendentes") return ":pendentes";
     if (activeQuizCollection === "tipo") return ":tipo:" + activeQuizType;
     if (activeQuizCollection === "erros") return ":erros";
     return "";
 }
 function quizRecordKey() {
-    const base = quizDifficulty.value === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + quizDifficulty.value;
+    const base = activeQuizDifficulty === "normal" ? QUIZ_KEY : QUIZ_KEY + ":" + activeQuizDifficulty;
     return base + quizCollectionRecordSuffix() +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizPointsRecordKey() {
-    return QUIZ_KEY + ":pontos:" + quizDifficulty.value +
+    return QUIZ_KEY + ":pontos:" + activeQuizDifficulty +
         quizCollectionRecordSuffix() +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
 function quizStreakRecordKey() {
-    return QUIZ_KEY + ":sequencia:" + quizDifficulty.value +
+    return QUIZ_KEY + ":sequencia:" + activeQuizDifficulty +
         quizCollectionRecordSuffix() +
         (quizRoundSize === 10 ? "" : ":rodadas:" + quizRoundSize);
 }
@@ -813,6 +815,10 @@ function selectFocusedQuizQuestions(pool, requested) {
 
 function startQuiz(review = false, focusType = null) {
     if (quizCards.length < 4) return;
+    activeQuizDifficulty = quizDifficulty.value;
+    quizDifficulty.disabled = true;
+    quizLength.disabled = true;
+    quizCollection.disabled = true;
     const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
     const capturedOption = quizCollection.querySelector('option[value="capturados"]');
     capturedOption.disabled = capturedCount < 4;
@@ -890,6 +896,9 @@ function startQuiz(review = false, focusType = null) {
     showQuizQuestion();
 }
 function finishQuiz() {
+    quizDifficulty.disabled = false;
+    quizLength.disabled = false;
+    quizCollection.disabled = false;
     const best = quizIsReview ? null : Math.max(quizRecord(), quizCorrect);
     const pointRecord = quizIsReview ? null : Math.max(quizPointsRecord(), quizPoints);
     const streakRecord = quizIsReview ? null : Math.max(quizStreakRecord(), quizBestStreak);
@@ -1037,4 +1046,9 @@ window.addEventListener("storage", event => {
     }
 });
 quizClose.addEventListener("click", () => quizDialog.close());
-quizDialog.addEventListener("close", () => quizButton.focus());
+quizDialog.addEventListener("close", () => {
+    quizDifficulty.disabled = false;
+    quizLength.disabled = false;
+    quizCollection.disabled = false;
+    quizButton.focus();
+});
