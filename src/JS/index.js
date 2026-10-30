@@ -296,6 +296,78 @@ window.addEventListener("storage", event => {
     if (event.key === QUIZ_TYPE_HISTORY_KEY || event.key === null)
         quizTypeHistory = loadQuizTypeHistory();
 });
+// Portable local quiz progress. Capture backups remain independent.
+const quizBackupButton = document.createElement("button");
+quizBackupButton.type = "button";
+quizBackupButton.className = "capturar-pokemon";
+quizBackupButton.textContent = "Exportar treino do quiz";
+const quizRestoreButton = document.createElement("button");
+quizRestoreButton.type = "button";
+quizRestoreButton.className = "capturar-pokemon";
+quizRestoreButton.textContent = "Importar treino do quiz";
+const quizBackupInput = document.createElement("input");
+quizBackupInput.type = "file";
+quizBackupInput.accept = ".json,application/json";
+quizBackupInput.hidden = true;
+const quizBackupStatus = document.createElement("span");
+quizBackupStatus.setAttribute("role", "status");
+quizBackupStatus.setAttribute("aria-live", "polite");
+if (filtros) filtros.append(quizBackupButton, quizRestoreButton, quizBackupInput, quizBackupStatus);
+quizBackupButton.addEventListener("click", () => {
+    const backup = {
+        schema: "pokedex-quiz-treino-v1",
+        erros: [...quizPracticeNumbers].sort(),
+        tipos: [...quizTypeHistory].map(([tipo, stats]) => [tipo, {...stats}])
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], {type: "application/json"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokedex-treino-quiz.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    quizBackupStatus.textContent = "Treino exportado para arquivo local.";
+});
+quizRestoreButton.addEventListener("click", () => quizBackupInput.click());
+quizBackupInput.addEventListener("change", async () => {
+    const file = quizBackupInput.files?.[0];
+    quizBackupInput.value = "";
+    if (!file) return;
+    if (file.size > 100_000) {
+        quizBackupStatus.textContent = "Arquivo de treino muito grande.";
+        return;
+    }
+    try {
+        const backup = JSON.parse(await file.text());
+        const knownTypes = new Set(quizCards.flatMap(card => card.types));
+        if (backup?.schema !== "pokedex-quiz-treino-v1" ||
+            !Array.isArray(backup.erros) || !Array.isArray(backup.tipos) ||
+            backup.erros.length > quizCards.length || backup.tipos.length > knownTypes.size ||
+            !backup.erros.every(id => typeof id === "string" && numerosDisponiveis.has(id)) ||
+            !backup.tipos.every(entry => Array.isArray(entry) && entry.length === 2 &&
+                knownTypes.has(entry[0]) && entry[1] &&
+                Number.isSafeInteger(entry[1].asked) && Number.isSafeInteger(entry[1].correct) &&
+                entry[1].asked >= 0 && entry[1].asked <= 9999 &&
+                entry[1].correct >= 0 && entry[1].correct <= entry[1].asked)) {
+            throw new Error("Formato de treino inválido");
+        }
+        for (const id of loadQuizMistakes()) quizPracticeNumbers.add(id);
+        for (const id of backup.erros) quizPracticeNumbers.add(id);
+        for (const [type, stats] of backup.tipos) {
+            const current = quizTypeHistory.get(type);
+            if (!current || stats.asked > current.asked) quizTypeHistory.set(type, {
+                asked: stats.asked, correct: stats.correct
+            });
+        }
+        saveQuizMistakes();
+        saveQuizTypeHistory();
+        quizBackupStatus.textContent = "Treino importado sem apagar o progresso existente.";
+    } catch {
+        quizBackupStatus.textContent = "Arquivo inválido. Nenhum progresso foi importado.";
+    }
+});
+
 function recordQuizTypeResult(pokemon, correct) {
     if (correct) quizPracticeNumbers.delete(pokemon.number);
     else quizPracticeNumbers.add(pokemon.number);
