@@ -613,6 +613,26 @@ function weakestQuizTrainingType() {
             (a[1].asked - a[1].correct) / a[1].asked ||
             b[1].asked - a[1].asked || a[0].localeCompare(b[0], "pt-BR"))[0]?.[0] ?? null;
 }
+// Within a filtered collection, revisit some known mistakes and balance
+// the rest toward types with weaker local history. Explicit review mode
+// remains unchanged and no remote tracking is introduced.
+function selectFocusedQuizQuestions(pool, requested) {
+    const mixed = shuffleQuiz(pool);
+    const errors = mixed.filter(card => quizPracticeNumbers.has(card.number));
+    const fresh = mixed.filter(card => !quizPracticeNumbers.has(card.number))
+        .sort((a, b) => quizTypeWeakness(b) - quizTypeWeakness(a));
+    const limit = Math.min(pool.length, requested);
+    const correctionSlots = Math.min(errors.length, Math.ceil(limit / 2));
+    const selected = [...errors.slice(0, correctionSlots),
+        ...fresh.slice(0, limit - correctionSlots)];
+    if (selected.length < limit) {
+        const seen = new Set(selected.map(card => card.number));
+        selected.push(...errors.filter(card => !seen.has(card.number))
+            .slice(0, limit - selected.length));
+    }
+    return shuffleQuiz(selected);
+}
+
 function startQuiz(review = false, focusType = null) {
     if (quizCards.length < 4) return;
     const capturedCount = quizCards.filter(card => capturados.has(card.number)).length;
@@ -654,7 +674,7 @@ function startQuiz(review = false, focusType = null) {
     // persisted practice set, so future sessions adapt automatically.
     const selectedQuestions = (() => {
         if (quizIsReview) return reviewPool;
-        if (activeQuizCollection !== "todos") return shuffleQuiz(pool).slice(0, requested);
+        if (activeQuizCollection !== "todos") return selectFocusedQuizQuestions(pool, requested);
         const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
         const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)))
             .sort((a, b) => quizTypeWeakness(b) - quizTypeWeakness(a));
