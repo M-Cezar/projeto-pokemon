@@ -486,7 +486,14 @@ quizWeakType.type = "button";
 quizWeakType.className = "quiz-revisao";
 quizWeakType.textContent = "Treinar tipo mais difícil";
 quizWeakType.hidden = true;
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizClose);
+// Local round history is limited and never sent to a remote service.
+const quizHistoryDetails = document.createElement("details");
+quizHistoryDetails.className = "quiz-historico";
+const quizHistorySummary = document.createElement("summary");
+quizHistorySummary.textContent = "Últimas rodadas";
+const quizHistoryList = document.createElement("ol");
+quizHistoryDetails.append(quizHistorySummary, quizHistoryList);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -560,6 +567,57 @@ let quizHintsUsed = 0;
 let quizMissed = [];
 let quizSkipped = 0;
 let quizIsReview = false;
+const QUIZ_SESSIONS_KEY = "pokedex:quiz-rodadas:v1";
+function loadQuizSessions() {
+    try {
+        const data = JSON.parse(localStorage.getItem(QUIZ_SESSIONS_KEY) || "[]");
+        if (!Array.isArray(data)) return [];
+        return data.slice(0, 8).filter(item => item &&
+            typeof item.mode === "string" && item.mode.length <= 64 &&
+            ["facil", "normal", "especialista"].includes(item.difficulty) &&
+            Number.isSafeInteger(item.total) && item.total >= 1 && item.total <= 15 &&
+            Number.isSafeInteger(item.correct) && item.correct >= 0 && item.correct <= item.total &&
+            Number.isSafeInteger(item.points) && item.points >= 0 && item.points <= item.total * 2 &&
+            Number.isSafeInteger(item.at) && item.at >= 1577836800000 &&
+            item.at <= Date.now() + 86400000);
+    } catch { return []; }
+}
+let quizSessions = loadQuizSessions();
+function renderQuizSessions() {
+    quizHistoryList.replaceChildren();
+    quizHistorySummary.textContent = "Últimas rodadas (" + quizSessions.length + ")";
+    for (const session of quizSessions) {
+        const item = document.createElement("li");
+        item.textContent = new Date(session.at).toLocaleString("pt-BR") +
+            " · " + session.mode + " · " + session.difficulty +
+            " · " + session.correct + "/" + session.total +
+            " acertos · " + session.points + " pontos";
+        quizHistoryList.append(item);
+    }
+    if (!quizSessions.length) {
+        const item = document.createElement("li");
+        item.textContent = "Nenhuma rodada concluída neste navegador.";
+        quizHistoryList.append(item);
+    }
+}
+function recordQuizSession() {
+    const mode = quizIsReview ? "revisão" :
+        activeQuizCollection === "tipo" ? "tipo " + activeQuizType : activeQuizCollection;
+    quizSessions = [{
+        mode: mode.slice(0, 64), difficulty: activeQuizDifficulty,
+        total: quizRoundSize, correct: quizCorrect, points: quizPoints, at: Date.now()
+    }, ...quizSessions].slice(0, 8);
+    try { localStorage.setItem(QUIZ_SESSIONS_KEY, JSON.stringify(quizSessions)); }
+    catch { /* History stays visible in this session. */ }
+    renderQuizSessions();
+}
+renderQuizSessions();
+window.addEventListener("storage", event => {
+    if (event.key === QUIZ_SESSIONS_KEY || event.key === null) {
+        quizSessions = loadQuizSessions();
+        renderQuizSessions();
+    }
+});
 function quizPointsRecord() {
     try {
         const saved = Number(localStorage.getItem(quizPointsRecordKey()));
@@ -910,6 +968,7 @@ function finishQuiz() {
         try { localStorage.setItem(quizStreakRecordKey(), String(streakRecord)); }
         catch { /* A sequência da sessão continua visível. */ }
     }
+    recordQuizSession();
     quizIndex = quizRoundSize;
     quizProgress.max = quizRoundSize;
     quizProgress.value = quizRoundSize;
