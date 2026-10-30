@@ -501,6 +501,26 @@ quizHistoryStats.setAttribute("aria-live", "polite");
 const quizDailyProgress = document.createElement("p");
 quizDailyProgress.setAttribute("role", "status");
 quizDailyProgress.setAttribute("aria-live", "polite");
+// The daily target is a local preference; no cloud account or score changes.
+const QUIZ_DAILY_GOAL_KEY = "pokedex:quiz-meta-diaria:v1";
+const quizDailyGoal = document.createElement("select");
+quizDailyGoal.setAttribute("aria-label", "Meta diária de rodadas");
+for (const goal of [1, 3, 5]) {
+    const option = document.createElement("option");
+    option.value = String(goal);
+    option.textContent = "Meta: " + goal + " rodada(s) por dia";
+    quizDailyGoal.append(option);
+}
+try {
+    const savedGoal = localStorage.getItem(QUIZ_DAILY_GOAL_KEY);
+    if (["1", "3", "5"].includes(savedGoal)) quizDailyGoal.value = savedGoal;
+    else quizDailyGoal.value = "3";
+} catch { quizDailyGoal.value = "3"; }
+quizDailyGoal.addEventListener("change", () => {
+    try { localStorage.setItem(QUIZ_DAILY_GOAL_KEY, quizDailyGoal.value); }
+    catch { /* Preference stays active for this session. */ }
+    renderQuizSessions();
+});
 const quizHistoryFilter = document.createElement("select");
 quizHistoryFilter.setAttribute("aria-label", "Filtrar histórico pela dificuldade");
 for (const [value, label] of [
@@ -558,7 +578,7 @@ const quizHistoryImportStatus = document.createElement("p");
 quizHistoryImportStatus.setAttribute("role", "status");
 quizHistoryImportStatus.setAttribute("aria-live", "polite");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
-    quizHistoryStats, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
+    quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
@@ -753,8 +773,17 @@ function renderQuizSessions() {
     const activeDays = recentDays.filter(day => (quizActivity[day] || 0) > 0).length;
     const weeklyRounds = recentDays.reduce((sum, day) =>
         sum + (quizActivity[day] || 0), 0);
-    quizDailyProgress.textContent = "Meta diária: " + Math.min(todayCount, 3) +
-        "/3 rodadas" + (todayCount >= 3 ? " · meta concluída" : "") +
+    const dailyGoal = Number(quizDailyGoal.value) || 3;
+    let streak = 0;
+    // A streak can include yesterday when today's goal is still pending.
+    for (const [index, day] of recentDays.entries()) {
+        if ((quizActivity[day] || 0) >= dailyGoal) streak++;
+        else if (index !== 0 || streak > 0) break;
+    }
+    quizDailyProgress.textContent = "Meta diária: " +
+        Math.min(todayCount, dailyGoal) + "/" + dailyGoal + " rodadas" +
+        (todayCount >= dailyGoal ? " · meta concluída" : "") +
+        " · Sequência: " + streak + " dia(s) com meta atingida" +
         " · Últimos 7 dias: " + weeklyRounds + " rodada(s) em " +
         activeDays + " dia(s) de prática.";
     quizHistoryList.replaceChildren();
