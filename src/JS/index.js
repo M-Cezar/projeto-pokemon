@@ -562,6 +562,12 @@ const quizDailyExport = document.createElement("button");
 quizDailyExport.type = "button";
 quizDailyExport.className = "quiz-revisao";
 quizDailyExport.textContent = "Exportar atividade dos últimos 7 dias (CSV)";
+const quizWeeklyPlan = document.createElement("button");
+quizWeeklyPlan.type = "button";
+quizWeeklyPlan.className = "quiz-revisao";
+quizWeeklyPlan.textContent = "Copiar plano de treino de 7 dias";
+quizWeeklyPlan.setAttribute("aria-label",
+    "Copiar um plano semanal de treino com metas diárias e tipos prioritários");
 const quizHistoryBackup = document.createElement("button");
 quizHistoryBackup.type = "button";
 quizHistoryBackup.className = "quiz-revisao";
@@ -579,7 +585,7 @@ quizHistoryImportStatus.setAttribute("role", "status");
 quizHistoryImportStatus.setAttribute("aria-live", "polite");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizWeeklyPlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -849,6 +855,43 @@ function recordQuizSession() {
     renderQuizSessions();
 }
 renderQuizSessions();
+quizWeeklyPlan.addEventListener("click", async () => {
+    const goal = Number(quizDailyGoal.value) || 3;
+    const days = recentQuizDays();
+    const weakest = [...quizTypeHistory.entries()]
+        .filter(([, stats]) => stats.asked >= 3 && stats.correct < stats.asked)
+        .sort((a, b) => a[1].correct / a[1].asked -
+            b[1].correct / b[1].asked || b[1].asked - a[1].asked)
+        .slice(0, 3).map(([type]) => type);
+    const recommendation = recommendedQuizDifficulty();
+    const focus = weakest.length ? weakest : ["identificação geral", "revisão de erros"];
+    const lines = [
+        "Plano semanal de treino Pokémon",
+        "Meta: " + goal + " rodada(s) por dia.",
+        "Dificuldade sugerida: " + (recommendation?.difficulty || "normal") + ".",
+        "Prioridades baseadas no histórico: " + focus.join(", ") + ".",
+        "Atividade registrada neste navegador (últimos 7 dias):",
+        ...days.slice().reverse().map(day =>
+            day + ": " + (quizActivity[day] || 0) + "/" + goal + " rodada(s)."),
+        "Próximos 7 dias:"
+    ];
+    for (let index = 0; index < 7; index++) {
+        const date = new Date();
+        date.setHours(12, 0, 0, 0);
+        date.setDate(date.getDate() + index);
+        lines.push(quizLocalDay(date.getTime()) + ": " + goal +
+            " rodada(s), foco em " + focus[index % focus.length] +
+            "; revisar erros antes de avançar.");
+    }
+    lines.push("O plano é orientativo e não altera recordes, capturas ou metas.");
+    try {
+        await navigator.clipboard.writeText(lines.join("\\n"));
+        quizHistoryImportStatus.textContent = "Plano semanal copiado.";
+    } catch {
+        quizHistoryImportStatus.textContent =
+            "Não foi possível copiar o plano. Verifique a permissão do navegador.";
+    }
+});
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryMode.addEventListener("change", renderQuizSessions);
 quizHistoryPractice.addEventListener("click", () => {
