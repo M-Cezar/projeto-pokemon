@@ -368,7 +368,61 @@ quizBackupInput.addEventListener("change", async () => {
     }
 });
 
+// Spaced repetition remains local to this browser and never changes captures
+// or original quiz records. A mistake returns in one day; successful reviews
+// extend the next interval to three and then seven days.
+const QUIZ_SPACED_KEY = "pokedex:quiz-revisoes:v1";
+const QUIZ_DAY_MS = 86400000;
+function loadSpacedReviews() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(QUIZ_SPACED_KEY) || "[]");
+        if (!Array.isArray(raw) || raw.length > quizCards.length) return new Map();
+        const known = new Set(quizCards.map(card => card.number));
+        const reviews = new Map();
+        for (const item of raw) {
+            if (!Array.isArray(item) || item.length !== 2 || !known.has(item[0])) continue;
+            const entry = item[1];
+            if (!entry || !Number.isSafeInteger(entry.step) || entry.step < 0 ||
+                entry.step > 2 || !Number.isSafeInteger(entry.dueAt) ||
+                entry.dueAt < 1577836800000 ||
+                entry.dueAt > Date.now() + 8 * QUIZ_DAY_MS) continue;
+            reviews.set(item[0], {step: entry.step, dueAt: entry.dueAt});
+        }
+        return reviews;
+    } catch { return new Map(); }
+}
+let quizSpacedReviews = loadSpacedReviews();
+function saveSpacedReviews() {
+    try { localStorage.setItem(QUIZ_SPACED_KEY,
+        JSON.stringify([...quizSpacedReviews].slice(0, quizCards.length))); }
+    catch { /* Revisões continuam disponíveis durante esta sessão. */ }
+}
+function dueReviewCards() {
+    const now = Date.now();
+    return quizCards.filter(card => {
+        const entry = quizSpacedReviews.get(card.number);
+        return entry && entry.dueAt <= now;
+    });
+}
+function recordSpacedReview(pokemon, correct) {
+    const previous = quizSpacedReviews.get(pokemon.number);
+    if (!previous && correct) return;
+    const step = correct ? Math.min(2, previous.step + 1) : 0;
+    const interval = [1, 3, 7][step];
+    quizSpacedReviews.set(pokemon.number, {
+        step, dueAt: Date.now() + interval * QUIZ_DAY_MS
+    });
+    saveSpacedReviews();
+    updateDueReviewButton();
+}
+window.addEventListener("storage", event => {
+    if (event.key === QUIZ_SPACED_KEY || event.key === null) {
+        quizSpacedReviews = loadSpacedReviews();
+        updateDueReviewButton();
+    }
+});
 function recordQuizTypeResult(pokemon, correct) {
+    recordSpacedReview(pokemon, correct);
     if (correct) quizPracticeNumbers.delete(pokemon.number);
     else quizPracticeNumbers.add(pokemon.number);
     saveQuizMistakes();
@@ -392,6 +446,19 @@ quizButton.type = "button";
 quizButton.className = "abrir-quiz";
 quizButton.textContent = "Jogar quiz de silhuetas";
 document.querySelector(".filtros-pokemon")?.append(quizButton);
+const quizDueButton = document.createElement("button");
+quizDueButton.type = "button";
+quizDueButton.className = "abrir-quiz";
+quizButton.insertAdjacentElement("afterend", quizDueButton);
+function updateDueReviewButton() {
+    const due = dueReviewCards().length;
+    quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
+    quizDueButton.disabled = due === 0;
+    quizDueButton.setAttribute("aria-label", due
+        ? "Iniciar revisão de " + due + " Pokémon com prazo vencido"
+        : "Nenhuma revisão espaçada pendente");
+}
+updateDueReviewButton();
 
 const quizDialog = document.createElement("dialog");
 quizDialog.className = "pokemon-quiz";
@@ -1265,7 +1332,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null) {
+function startQuiz(review = false, focusType = null, dueOnly = false) {
     if (quizCards.length < 4) return;
     activeQuizDifficulty = quizDifficulty.value;
     quizDifficulty.disabled = true;
@@ -1299,9 +1366,9 @@ function startQuiz(review = false, focusType = null) {
     const focusedPool = focusType
         ? quizCards.filter(card => card.types.includes(focusType)) : [];
     const useFocus = focusedPool.length >= 4;
-    activeQuizCollection = useFocus ? "tipo" : quizCollection.value;
+    activeQuizCollection = dueOnly ? "revisoes" : useFocus ? "tipo" : quizCollection.value;
     activeQuizType = useFocus ? focusType : selectedType;
-    const pool = useFocus ? focusedPool : quizCollection.value === "capturados"
+    const pool = dueOnly ? dueReviewCards() : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
         : quizCollection.value === "pendentes"
             ? quizCards.filter(card => !capturados.has(card.number))
@@ -1309,7 +1376,8 @@ function startQuiz(review = false, focusType = null) {
         : quizCollection.value === "erros" ? mistakesPool : quizCards;
     const reviewPool = review ? [...quizMissed] : [];
     quizIsReview = review && reviewPool.length > 0;
-    quizChoicePool = quizIsReview || activeQuizCollection === "erros" ? [...quizCards] : [...pool];
+    quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
+        ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
     const requested = Number(quizLength.value) || 10;
     // General practice revisits a few saved mistakes without turning the
@@ -1449,6 +1517,11 @@ quizCollection.addEventListener("change", () => {
 quizButton.addEventListener("click", () => {
     startQuiz();
     if (quizCards.length >= 4) quizDialog.showModal();
+});
+quizDueButton.addEventListener("click", () => {
+    if (!dueReviewCards().length || quizCards.length < 4) return;
+    startQuiz(false, null, true);
+    quizDialog.showModal();
 });
 quizReview.addEventListener("click", () => startQuiz(true));
 quizWeakType.addEventListener("click", () => {
