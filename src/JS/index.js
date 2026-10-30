@@ -522,6 +522,13 @@ for (const [value, label] of [
     option.textContent = label;
     quizHistoryMode.append(option);
 }
+const quizHistoryRecommendation = document.createElement("p");
+quizHistoryRecommendation.setAttribute("aria-live", "polite");
+const quizHistoryPractice = document.createElement("button");
+quizHistoryPractice.type = "button";
+quizHistoryPractice.className = "quiz-revisao";
+quizHistoryPractice.textContent = "Treinar dificuldade prioritária";
+quizHistoryPractice.disabled = true;
 const quizHistoryList = document.createElement("ol");
 const quizHistoryExport = document.createElement("button");
 quizHistoryExport.type = "button";
@@ -544,7 +551,8 @@ const quizHistoryImportStatus = document.createElement("p");
 quizHistoryImportStatus.setAttribute("role", "status");
 quizHistoryImportStatus.setAttribute("aria-live", "polite");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
-    quizHistoryStats, quizHistoryList, quizHistoryExport, quizHistoryBackup,
+    quizHistoryStats, quizHistoryRecommendation, quizHistoryPractice,
+    quizHistoryList, quizHistoryExport, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -664,12 +672,39 @@ function selectedQuizSessions() {
         return session.mode === mode;
     });
 }
+// A weighted comparison avoids treating a five-question round as equal to
+// fifteen questions. Review rounds do not bias difficulty recommendations.
+function recommendedQuizDifficulty() {
+    const totals = new Map();
+    for (const session of quizSessions) {
+        if (session.mode === "revisão") continue;
+        const entry = totals.get(session.difficulty) || { total: 0, correct: 0 };
+        entry.total += session.total;
+        entry.correct += session.correct;
+        totals.set(session.difficulty, entry);
+    }
+    const ranked = [...totals.entries()].filter(([, item]) => item.total >= 5)
+        .sort((a, b) => a[1].correct / a[1].total -
+            b[1].correct / b[1].total ||
+            b[1].total - a[1].total || a[0].localeCompare(b[0]));
+    return ranked.length ? {
+        difficulty: ranked[0][0], questions: ranked[0][1].total,
+        accuracy: Math.round(100 * ranked[0][1].correct / ranked[0][1].total)
+    } : null;
+}
 function renderQuizSessions() {
     const selected = selectedQuizSessions();
     quizHistoryList.replaceChildren();
     quizHistorySummary.textContent = "Últimas rodadas (" + selected.length + "/" + quizSessions.length + ")";
     quizHistoryExport.disabled = selected.length === 0;
     quizHistoryBackup.disabled = quizSessions.length === 0;
+    const recommendation = recommendedQuizDifficulty();
+    quizHistoryPractice.disabled = !recommendation;
+    quizHistoryRecommendation.textContent = recommendation
+        ? "Treino sugerido: " + recommendation.difficulty +
+          " · " + recommendation.accuracy + "% de acertos em " +
+          recommendation.questions + " perguntas registradas."
+        : "Conclua uma rodada de pelo menos cinco perguntas para receber uma sugestão.";
     const totalQuestions = selected.reduce((sum, session) => sum + session.total, 0);
     const totalCorrect = selected.reduce((sum, session) => sum + session.correct, 0);
     const best = selected.reduce((value, session) =>
@@ -723,6 +758,14 @@ function recordQuizSession() {
 renderQuizSessions();
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryMode.addEventListener("change", renderQuizSessions);
+quizHistoryPractice.addEventListener("click", () => {
+    const recommendation = recommendedQuizDifficulty();
+    if (!recommendation) return;
+    quizDifficulty.value = recommendation.difficulty;
+    startQuiz();
+    quizHistoryImportStatus.textContent =
+        "Treino iniciado na dificuldade " + recommendation.difficulty + ".";
+});
 quizHistoryExport.addEventListener("click", () => {
     const selected = selectedQuizSessions();
     if (!selected.length) return;
