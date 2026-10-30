@@ -569,6 +569,19 @@ let quizHintsUsed = 0;
 let quizMissed = [];
 let quizSkipped = 0;
 let quizIsReview = false;
+// Keep the previous round's species out of fresh practice when alternatives
+// exist. Missed Pokémon still take priority in adaptive review.
+const QUIZ_RECENT_KEY = "pokedex:quiz-ultimas-perguntas:v1";
+function loadRecentQuizNumbers() {
+    try {
+        const data = JSON.parse(localStorage.getItem(QUIZ_RECENT_KEY) || "[]");
+        const known = new Set(quizCards.map(card => card.number));
+        return new Set(Array.isArray(data)
+            ? data.slice(0, 15).filter(id => typeof id === "string" && known.has(id))
+            : []);
+    } catch { return new Set(); }
+}
+let recentQuizNumbers = loadRecentQuizNumbers();
 const QUIZ_SESSIONS_KEY = "pokedex:quiz-rodadas:v1";
 function loadQuizSessions() {
     try {
@@ -869,7 +882,9 @@ function selectFocusedQuizQuestions(pool, requested) {
     const mixed = shuffleQuiz(pool);
     const errors = mixed.filter(card => quizPracticeNumbers.has(card.number));
     const fresh = mixed.filter(card => !quizPracticeNumbers.has(card.number))
-        .sort((a, b) => quizTypeWeakness(b) - quizTypeWeakness(a));
+        .sort((a, b) =>
+            Number(recentQuizNumbers.has(a.number)) - Number(recentQuizNumbers.has(b.number)) ||
+            quizTypeWeakness(b) - quizTypeWeakness(a));
     const limit = Math.min(pool.length, requested);
     const correctionSlots = Math.min(errors.length, Math.ceil(limit / 2));
     const selected = [...errors.slice(0, correctionSlots),
@@ -937,7 +952,9 @@ function startQuiz(review = false, focusType = null) {
         if (activeQuizCollection !== "todos") return selectFocusedQuizQuestions(pool, requested);
         const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
         const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)))
-            .sort((a, b) => quizTypeWeakness(b) - quizTypeWeakness(a));
+            .sort((a, b) =>
+                Number(recentQuizNumbers.has(a.number)) - Number(recentQuizNumbers.has(b.number)) ||
+                quizTypeWeakness(b) - quizTypeWeakness(a));
         const practiceSlots = Math.min(mistakes.length, Math.ceil(requested / 2));
         const selected = [...mistakes.slice(0, practiceSlots),
             ...fresh.slice(0, requested - practiceSlots)];
@@ -980,6 +997,11 @@ function finishQuiz() {
         catch { /* A sequência da sessão continua visível. */ }
     }
     recordQuizSession();
+    if (!quizIsReview) {
+        recentQuizNumbers = new Set(quizQuestions.map(card => card.number).slice(0, 15));
+        try { localStorage.setItem(QUIZ_RECENT_KEY, JSON.stringify([...recentQuizNumbers])); }
+        catch { /* The current round remains playable without persistence. */ }
+    }
     quizIndex = quizRoundSize;
     quizProgress.max = quizRoundSize;
     quizProgress.value = quizRoundSize;
