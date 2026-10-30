@@ -650,9 +650,16 @@ quizHistoryFile.hidden = true;
 const quizHistoryImportStatus = document.createElement("p");
 quizHistoryImportStatus.setAttribute("role", "status");
 quizHistoryImportStatus.setAttribute("aria-live", "polite");
+// Export a local revision calendar without sharing capture or account data.
+const quizReviewCalendarExport = document.createElement("button");
+quizReviewCalendarExport.type = "button";
+quizReviewCalendarExport.className = "quiz-revisao";
+quizReviewCalendarExport.textContent = "Exportar agenda de revisões (CSV)";
+quizReviewCalendarExport.setAttribute("aria-label",
+    "Exportar Pokémon agendados, intervalo e próxima revisão em CSV");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizWeeklyPlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizWeeklyPlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -1652,6 +1659,36 @@ quizExportMistakes.addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = url;
     link.download = "pokemon-revisar-erros.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+quizReviewCalendarExport.addEventListener("click", () => {
+    const byNumber = new Map(quizCards.map(card => [card.number, card]));
+    const now = Date.now();
+    const rows = [["Número", "Pokémon", "Tipos", "Próxima revisão",
+        "Intervalo (dias)", "Estado"]];
+    for (const [number, review] of [...quizSpacedReviews].sort((a, b) =>
+        a[1].dueAt - b[1].dueAt || a[0].localeCompare(b[0]))) {
+        const card = byNumber.get(number);
+        if (!card || !Number.isSafeInteger(review.dueAt) ||
+            review.step < 0 || review.step > 2) continue;
+        rows.push([number, card.name, card.types.join(", "),
+            new Date(review.dueAt).toISOString(),
+            [1, 3, 7][review.step],
+            review.dueAt <= now ? "Pendente" : "Agendada"]);
+    }
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 128);
+        if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const csv = "\ufeff" + rows.map(row => row.map(cell).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-agenda-revisoes.csv";
     document.body.append(link);
     link.click();
     link.remove();
