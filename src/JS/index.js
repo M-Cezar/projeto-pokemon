@@ -538,6 +538,10 @@ quizHistoryExport.type = "button";
 quizHistoryExport.className = "quiz-revisao";
 quizHistoryExport.textContent = "Exportar histórico (CSV)";
 quizHistoryExport.setAttribute("aria-label", "Exportar as últimas rodadas de treino para CSV");
+const quizDailyExport = document.createElement("button");
+quizDailyExport.type = "button";
+quizDailyExport.className = "quiz-revisao";
+quizDailyExport.textContent = "Exportar atividade dos últimos 7 dias (CSV)";
 const quizHistoryBackup = document.createElement("button");
 quizHistoryBackup.type = "button";
 quizHistoryBackup.className = "quiz-revisao";
@@ -555,7 +559,7 @@ quizHistoryImportStatus.setAttribute("role", "status");
 quizHistoryImportStatus.setAttribute("aria-live", "polite");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
-    quizHistoryList, quizHistoryExport, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -847,6 +851,35 @@ quizHistoryExport.addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = url;
     link.download = "historico-quiz-pokemon.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+// Aggregate only local training activity, without account identifiers.
+// The daily target is a training goal, not a claimed reward.
+quizDailyExport.addEventListener("click", () => {
+    const rows = [["Dia", "Rodadas registradas", "Perguntas", "Acertos",
+        "Precisão (%)", "Meta diária (3)", "Meta atingida"]];
+    for (const day of recentQuizDays().reverse()) {
+        const sessions = quizSessions.filter(session => quizLocalDay(session.at) === day);
+        const total = sessions.reduce((sum, session) => sum + session.total, 0);
+        const correct = sessions.reduce((sum, session) => sum + session.correct, 0);
+        const count = Math.max(quizActivity[day] || 0, sessions.length);
+        rows.push([day, count, total, correct,
+            total ? Math.round(100 * correct / total) : "",
+            3, count >= 3 ? "Sim" : "Não"]);
+    }
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\\r\\n\\u2028\\u2029]/g, " ").slice(0, 128);
+        if (/^\\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const csv = "\\ufeff" + rows.map(row => row.map(cell).join(";")).join("\\r\\n");
+    const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "atividade-semanal-quiz-pokemon.csv";
     document.body.append(link);
     link.click();
     link.remove();
@@ -1478,36 +1511,6 @@ quizExportMistakes.addEventListener("click", () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
-// Keyboard-first training without global shortcuts outside the open dialog.
-// Ignore modified keys and editable controls to preserve native interactions.
-const quizKeyboardHelp = document.createElement("p");
-quizKeyboardHelp.className = "quiz-keyboard-help";
-quizKeyboardHelp.textContent = "Atalhos: 1–5 responder, D dica, P pular, N próxima pergunta.";
-quizOptions.insertAdjacentElement("afterend", quizKeyboardHelp);
-quizHint.setAttribute("aria-keyshortcuts", "D");
-quizSkip.setAttribute("aria-keyshortcuts", "P");
-quizNext.setAttribute("aria-keyshortcuts", "N");
-quizDialog.addEventListener("keydown", event => {
-    if (!quizDialog.open || event.defaultPrevented || event.repeat ||
-        event.ctrlKey || event.altKey || event.metaKey ||
-        event.target?.closest?.('input,textarea,select,[contenteditable="true"]')) return;
-    const key = event.key.toLowerCase();
-    if (/^[1-5]$/.test(key) && !quizAnswered && quizIndex < quizQuestions.length) {
-        const option = quizOptions.querySelectorAll("button")[Number(key) - 1];
-        if (!option || option.disabled || option.hidden) return;
-        event.preventDefault();
-        option.click();
-    } else if (key === "d" && !quizAnswered && !quizHint.disabled && !quizHint.hidden) {
-        event.preventDefault();
-        quizHint.click();
-    } else if (key === "p" && !quizAnswered && !quizSkip.disabled && !quizSkip.hidden) {
-        event.preventDefault();
-        quizSkip.click();
-    } else if (key === "n" && quizAnswered && !quizNext.disabled && !quizNext.hidden) {
-        event.preventDefault();
-        quizNext.click();
-    }
 });
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
