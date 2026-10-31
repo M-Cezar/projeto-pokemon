@@ -620,6 +620,37 @@ quizHistoryDetails.className = "quiz-historico";
 const quizHistorySummary = document.createElement("summary");
 quizHistorySummary.textContent = "Últimas rodadas";
 const quizHistoryStats = document.createElement("p");
+const quizTrendStatus = document.createElement("p");
+quizTrendStatus.setAttribute("role", "status");
+quizTrendStatus.setAttribute("aria-live", "polite");
+// Compare question-weighted accuracy, not averages of unequal round sizes.
+function updateQuizLearningTrend(sessions) {
+    if (sessions.length < 4) {
+        quizTrendStatus.textContent =
+            "Evolução: conclua quatro rodadas comparáveis para acompanhar a tendência.";
+        return;
+    }
+    const latest = sessions.slice(0, 2);
+    const previous = sessions.slice(2, 4);
+    const summarize = group => {
+        const questions = group.reduce((sum, item) => sum + item.total, 0);
+        const correct = group.reduce((sum, item) => sum + item.correct, 0);
+        return {questions, accuracy: questions ? Math.round(100 * correct / questions) : 0};
+    };
+    const now = summarize(latest);
+    const before = summarize(previous);
+    const change = now.accuracy - before.accuracy;
+    const mixedDifficulty = new Set([...latest, ...previous].map(
+        item => item.difficulty)).size > 1;
+    quizTrendStatus.textContent = "Evolução nas quatro últimas rodadas: " +
+        before.accuracy + "% para " + now.accuracy + "% (" +
+        (change > 0 ? "+" : "") + change + " ponto(s) percentuais). " +
+        "Amostra: " + before.questions + " e " + now.questions +
+        " perguntas. " + (mixedDifficulty
+            ? "Dificuldades diferentes; não compare como melhora confirmada."
+            : "Tendência indicativa, não avaliação definitiva.");
+}
+
 quizHistoryStats.setAttribute("aria-live", "polite");
 const quizDailyProgress = document.createElement("p");
 quizDailyProgress.setAttribute("role", "status");
@@ -758,7 +789,7 @@ quizPriorityExport.textContent = "Exportar fila prioritária de revisões (CSV)"
 quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
-    quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
+    quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizPriorityExport, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
@@ -948,6 +979,7 @@ function recommendedQuizDifficulty() {
 }
 function renderQuizSessions() {
     const selected = selectedQuizSessions();
+    updateQuizLearningTrend(selected);
     const recentDays = recentQuizDays();
     const todayCount = quizActivity[recentDays[0]] || 0;
     const activeDays = recentDays.filter(day => (quizActivity[day] || 0) > 0).length;
