@@ -457,6 +457,10 @@ quizPracticeQueue.textContent = "Exportar fila de treino (CSV)";
 quizPracticeQueue.setAttribute("aria-label",
     "Baixar lista priorizada de Pokémon com revisões vencidas e erros anteriores");
 quizDueButton.insertAdjacentElement("afterend", quizPracticeQueue);
+const quizNextReviewStatus = document.createElement("p");
+quizNextReviewStatus.setAttribute("role", "status");
+quizNextReviewStatus.setAttribute("aria-live", "polite");
+quizDueButton.insertAdjacentElement("afterend", quizNextReviewStatus);
 function updateDueReviewButton() {
     const due = dueReviewCards().length;
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
@@ -464,6 +468,22 @@ function updateDueReviewButton() {
     quizDueButton.setAttribute("aria-label", due
         ? "Iniciar revisão de " + due + " Pokémon com prazo vencido"
         : "Nenhuma revisão espaçada pendente");
+    const now = Date.now();
+    const known = new Set(quizCards.map(card => card.number));
+    const upcoming = [...quizSpacedReviews.entries()]
+        .filter(([number, review]) => known.has(number) &&
+            review && Number.isSafeInteger(review.dueAt) && review.dueAt > now)
+        .sort((a, b) => a[1].dueAt - b[1].dueAt);
+    if (due) {
+        quizNextReviewStatus.textContent =
+            due + " revisão(ões) vencida(s). Priorize o treino espaçado.";
+    } else if (upcoming.length) {
+        quizNextReviewStatus.textContent = "Próxima revisão: " +
+            new Date(upcoming[0][1].dueAt).toLocaleString("pt-BR") +
+            " (" + upcoming.length + " agendada(s)).";
+    } else {
+        quizNextReviewStatus.textContent = "Nenhuma revisão futura agendada.";
+    }
 }
 updateDueReviewButton();
 
