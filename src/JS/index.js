@@ -457,6 +457,22 @@ quizPracticeQueue.textContent = "Exportar fila de treino (CSV)";
 quizPracticeQueue.setAttribute("aria-label",
     "Baixar lista priorizada de Pokémon com revisões vencidas e erros anteriores");
 quizDueButton.insertAdjacentElement("afterend", quizPracticeQueue);
+// Target the most represented type among currently overdue review cards.
+const quizDueTypeButton = document.createElement("button");
+quizDueTypeButton.type = "button";
+quizDueTypeButton.className = "abrir-quiz";
+quizDueTypeButton.textContent = "Revisar tipo mais atrasado";
+quizDueButton.insertAdjacentElement("afterend", quizDueTypeButton);
+quizDueTypeButton.addEventListener("click", () => {
+    const counts = new Map();
+    for (const card of dueReviewCards()) {
+        for (const type of card.types)
+            counts.set(type, (counts.get(type) || 0) + 1);
+    }
+    const chosen = [...counts].sort((a, b) =>
+        b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"))[0];
+    if (chosen) startQuiz(false, chosen[0], true);
+});
 const quizNextReviewStatus = document.createElement("p");
 quizNextReviewStatus.setAttribute("role", "status");
 quizNextReviewStatus.setAttribute("aria-live", "polite");
@@ -494,6 +510,7 @@ function updateDueReviewButton() {
     const due = dueReviewCards().length;
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
     quizDueButton.disabled = due === 0;
+    quizDueTypeButton.disabled = due === 0;
     quizDueButton.setAttribute("aria-label", due
         ? "Iniciar revisão de " + due + " Pokémon com prazo vencido"
         : "Nenhuma revisão espaçada pendente");
@@ -1571,7 +1588,8 @@ function startQuiz(review = false, focusType = null, dueOnly = false) {
     const useFocus = focusedPool.length >= 4;
     activeQuizCollection = dueOnly ? "revisoes" : useFocus ? "tipo" : quizCollection.value;
     activeQuizType = useFocus ? focusType : selectedType;
-    const pool = dueOnly ? dueReviewCards() : useFocus ? focusedPool : quizCollection.value === "capturados"
+    const pool = dueOnly ? (focusType ? dueReviewCards().filter(card =>
+        card.types.includes(focusType)) : dueReviewCards()) : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
         : quizCollection.value === "pendentes"
             ? quizCards.filter(card => !capturados.has(card.number))
