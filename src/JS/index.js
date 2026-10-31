@@ -2036,6 +2036,37 @@ quizReviewCalendarIcs.addEventListener("click", () => {
     quizHistoryImportStatus.textContent =
         events.length + " lembrete(s) exportado(s) para calendário.";
 });
+// Keyboard-accessible play: answer with 1-5, request a hint with H,
+// skip with S or advance with N. Never intercept form inputs or modifiers.
+quizDialog.setAttribute("aria-keyshortcuts", "1 2 3 4 5 H S N");
+quizDialog.addEventListener("keydown", event => {
+    if (!quizDialog.open || event.repeat || event.ctrlKey ||
+        event.metaKey || event.altKey || event.isComposing) return;
+    const target = event.target;
+    if (target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest("input,select,textarea"))) return;
+    const key = event.key.toLowerCase();
+    if (/^[1-5]$/.test(key) && !quizAnswered) {
+        const options = [...quizOptions.querySelectorAll("button")];
+        const choice = options[Number(key) - 1];
+        if (choice && !choice.disabled && !choice.hidden) {
+            event.preventDefault();
+            choice.click();
+        }
+    } else if (key === "h" && !quizAnswered && !quizHint.disabled &&
+        !quizHint.hidden) {
+        event.preventDefault();
+        quizHint.click();
+    } else if (key === "s" && !quizAnswered && !quizSkip.disabled &&
+        !quizSkip.hidden) {
+        event.preventDefault();
+        quizSkip.click();
+    } else if (key === "n" && quizAnswered && !quizNext.hidden &&
+        !quizNext.disabled) {
+        event.preventDefault();
+        quizNext.click();
+    }
+});
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
