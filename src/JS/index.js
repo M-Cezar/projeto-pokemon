@@ -1649,7 +1649,9 @@ function startQuiz(review = false, focusType = null, dueOnly = false) {
         }
         return shuffleQuiz(selected);
     })();
-    quizQuestions = spaceQuizQuestions(selectedQuestions);
+    // Preserve due-date order for overdue sessions. Other modes still
+    // interleave types to avoid repetitive silhouettes.
+    quizQuestions = dueOnly ? selectedQuestions : spaceQuizQuestions(selectedQuestions);
     quizRoundSize = quizQuestions.length;
     quizMissed = [];
     quizTypeStats = new Map();
