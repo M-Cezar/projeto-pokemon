@@ -1415,7 +1415,26 @@ function showQuizQuestion() {
     quizImage.classList.remove("revelada");
     updateQuizScore();
     const choices = quizDifficulty.value === "facil" ? 2 : quizDifficulty.value === "especialista" ? 5 : 3;
-    const candidateDistractors = quizChoicePool.filter(card => card.number !== current.number);
+    // Filtered collections may have only four species. Keep the selected
+    // question pool focused, but use the full Pokédex for missing distractors
+    // so expert rounds can still present six distinct answer labels.
+    // Forms sharing a display name are never presented as different answers.
+    const currentName = normalizarBusca(current.name);
+    const usedNames = new Set([currentName]);
+    const candidateDistractors = [];
+    const appendDistinct = cards => {
+        for (const card of cards) {
+            if (card.number === current.number) continue;
+            const name = normalizarBusca(card.name);
+            if (!name || usedNames.has(name)) continue;
+            usedNames.add(name);
+            candidateDistractors.push(card);
+        }
+    };
+    appendDistinct(shuffleQuiz(quizChoicePool));
+    if (candidateDistractors.length < choices)
+        appendDistinct(shuffleQuiz(quizCards));
+    const availableChoices = Math.min(choices, candidateDistractors.length);
     // Specialist rounds choose convincing alternatives, favoring shared types
     // and similar names. Shuffle first to avoid always choosing the same
     // Pokémon on equal scores; normal and easy rounds remain randomized.
@@ -1439,7 +1458,7 @@ function showQuizQuestion() {
     };
     const fresh = rankDistractors(candidateDistractors.filter(card => !quizPreviousDistractors.has(card.number)));
     const repeats = rankDistractors(candidateDistractors.filter(card => quizPreviousDistractors.has(card.number)));
-    const distractors = [...fresh, ...repeats].slice(0, choices);
+    const distractors = [...fresh, ...repeats].slice(0, availableChoices);
     quizPreviousDistractors = new Set(distractors.map(card => card.number));
     for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
         const option = document.createElement("button");
@@ -1455,7 +1474,7 @@ function showQuizQuestion() {
             quizSkip.disabled = true;
             quizHint.disabled = true;
             quizHint.hidden = true;
-            const correct = choice.name === current.name;
+            const correct = choice.number === current.number;
             recordQuizTypeResult(current, correct);
             if (correct) {
                 quizCorrect++;
