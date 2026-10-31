@@ -1773,6 +1773,44 @@ quizDueButton.addEventListener("click", () => {
     startQuiz(false, null, true);
     quizDialog.showModal();
 });
+// Start a focused overdue session for the type with the largest pending
+// workload. Existing deadlines and progress remain unchanged until answers.
+const quizDueTypeFocus = document.createElement("button");
+quizDueTypeFocus.type = "button";
+quizDueTypeFocus.className = quizDueButton.className;
+quizDueTypeFocus.textContent = "Revisar tipo com mais atrasos";
+quizDueTypeFocus.setAttribute("aria-label",
+    "Treinar revisões vencidas do tipo Pokémon com maior fila");
+quizDueButton.insertAdjacentElement("afterend", quizDueTypeFocus);
+quizDueTypeFocus.addEventListener("click", () => {
+    if (quizCards.length < 4) return;
+    const due = dueReviewCards();
+    if (!due.length) {
+        quizHistoryImportStatus.textContent = "Nenhuma revisão vencida para treinar.";
+        return;
+    }
+    const counts = new Map();
+    for (const card of due) {
+        for (const type of new Set(card.types)) {
+            const row = counts.get(type) || {type,count:0,oldest:Infinity};
+            row.count++;
+            row.oldest = Math.min(row.oldest,
+                quizSpacedReviews.get(card.number)?.dueAt ?? Infinity);
+            counts.set(type,row);
+        }
+    }
+    const target = [...counts.values()].sort((a,b) =>
+        b.count-a.count || a.oldest-b.oldest ||
+        a.type.localeCompare(b.type,"pt-BR"))[0];
+    if (!target) return;
+    startQuiz(false,target.type,true);
+    if (quizQuestions.length) {
+        quizDialog.showModal();
+        quizHistoryImportStatus.textContent =
+            "Revisão direcionada ao tipo " + target.type +
+            " (" + target.count + " vencida(s)).";
+    }
+});
 quizPracticeQueue.addEventListener("click", () => {
     const now = Date.now();
     const rows = quizCards.map(card => {
@@ -1830,45 +1868,8 @@ quizNext.addEventListener("click", () => {
     if (quizIndex >= quizRoundSize) finishQuiz();
     else showQuizQuestion();
 });
-document.addEventListener("keydown", event => {
-    if (!quizDialog.open || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
-    const target = event.target;
-    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement ||
-        target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
-    const key = event.key.toLowerCase();
-    if (/^[1-6]$/.test(key) && !quizAnswered) {
-        // Preserve the visible option number even after a hint removes a
-        // wrong answer. Filtering disabled buttons shifted shortcut indices.
-        const option = quizOptions.querySelectorAll("button")[Number(key) - 1];
-        if (!option || option.disabled || option.hidden) return;
-        event.preventDefault();
-        option.click();
-    } else if ((key === "arrowleft" || key === "arrowright") && !quizAnswered) {
-        const options = [...quizOptions.querySelectorAll("button")]
-            .filter(button => !button.disabled && !button.hidden);
-        if (!options.length) return;
-        const current = options.indexOf(document.activeElement);
-        const direction = key === "arrowright" ? 1 : -1;
-        const next = current < 0 ? 0 : (current + direction + options.length) % options.length;
-        event.preventDefault();
-        options[next].focus();
-    } else if ((key === "home" || key === "end") && !quizAnswered) {
-        const options = [...quizOptions.querySelectorAll("button")]
-            .filter(button => !button.disabled && !button.hidden);
-        if (!options.length) return;
-        event.preventDefault();
-        options[key === "home" ? 0 : options.length - 1].focus();
-    } else if (key === "h" && !quizHint.disabled && !quizHint.hidden) {
-        event.preventDefault();
-        quizHint.click();
-    } else if (key === "s" && !quizSkip.hidden && !quizSkip.disabled) {
-        event.preventDefault();
-        quizSkip.click();
-    } else if (key === "n" && !quizNext.hidden && !quizNext.disabled) {
-        event.preventDefault();
-        quizNext.click();
-    }
-});
+// A single dialog keyboard handler below owns shortcuts and focus movement.
+// Duplicated document handlers previously moved arrow-key focus twice.
 // Records can improve in another tab while this quiz is open. Refresh the
 // visible best score without altering the active question or session points.
 window.addEventListener("storage", event => {
