@@ -461,6 +461,35 @@ const quizNextReviewStatus = document.createElement("p");
 quizNextReviewStatus.setAttribute("role", "status");
 quizNextReviewStatus.setAttribute("aria-live", "polite");
 quizDueButton.insertAdjacentElement("afterend", quizNextReviewStatus);
+// Forecast the local study queue without changing review dates or records.
+const quizForecastButton = document.createElement("button");
+quizForecastButton.type = "button";
+quizForecastButton.className = "abrir-quiz";
+quizForecastButton.textContent = "Prever revisões dos próximos 7 dias";
+quizNextReviewStatus.insertAdjacentElement("afterend", quizForecastButton);
+const quizForecastStatus = document.createElement("p");
+quizForecastStatus.setAttribute("role", "status");
+quizForecastStatus.setAttribute("aria-live", "polite");
+quizForecastButton.insertAdjacentElement("afterend", quizForecastStatus);
+quizForecastButton.addEventListener("click", () => {
+    const now = Date.now();
+    const known = new Set(quizCards.map(card => card.number));
+    const counts = Array(7).fill(0);
+    let overdue = 0, scheduled = 0;
+    for (const [number, review] of quizSpacedReviews) {
+        if (!known.has(number) || !review ||
+            !Number.isSafeInteger(review.dueAt) || review.dueAt <= 0) continue;
+        if (review.dueAt <= now) { overdue++; continue; }
+        const day = Math.floor((review.dueAt - now - 1) / QUIZ_DAY_MS);
+        if (day >= 0 && day < 7) { counts[day]++; scheduled++; }
+    }
+    const parts = counts.map((count, day) =>
+        (day === 0 ? "Próximas 24h" : "Dia " + (day + 1)) + ": " + count);
+    quizForecastStatus.textContent = "Vencidas: " + overdue +
+        " · Agendadas nos próximos 7 dias: " + scheduled +
+        ". " + parts.join(" · ") +
+        ". Projeção local, sem alterar prazos.";
+});
 function updateDueReviewButton() {
     const due = dueReviewCards().length;
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
