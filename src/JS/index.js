@@ -632,6 +632,14 @@ quizWeakestTypePractice.className = "quiz-revisao";
 quizWeakestTypePractice.textContent = "Treinar tipo com mais erros";
 quizWeakestTypePractice.setAttribute("aria-label",
     "Iniciar treino direcionado ao tipo com menor precisão no histórico local");
+// Five-question sprint prioritizes overdue spaced reviews, then weak types.
+// Uses the existing local quiz engine and never uploads player progress.
+const quizDailySprint = document.createElement("button");
+quizDailySprint.type = "button";
+quizDailySprint.className = "quiz-revisao";
+quizDailySprint.textContent = "Treino rápido adaptativo (5 perguntas)";
+quizDailySprint.setAttribute("aria-label",
+    "Iniciar cinco perguntas priorizando revisões vencidas e tipos com erros");
 const quizHistoryList = document.createElement("ol");
 const quizHistoryExport = document.createElement("button");
 quizHistoryExport.type = "button";
@@ -701,7 +709,7 @@ quizPriorityExport.textContent = "Exportar fila prioritária de revisões (CSV)"
 quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
-    quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice,
+    quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizPriorityExport, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
@@ -1047,6 +1055,23 @@ quizReviewTypePlan.addEventListener("click", async () => {
 });
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryMode.addEventListener("change", renderQuizSessions);
+quizDailySprint.addEventListener("click", () => {
+    if (quizCards.length < 4) {
+        quizHistoryImportStatus.textContent = "São necessários quatro Pokémon para treinar.";
+        return;
+    }
+    quizLength.value = "5";
+    const recommendation = recommendedQuizDifficulty();
+    if (recommendation) quizDifficulty.value = recommendation.difficulty;
+    const overdue = dueReviewCards().length;
+    const weakType = overdue ? null : weakestQuizTrainingType();
+    startQuiz(false, weakType, overdue > 0);
+    quizHistoryImportStatus.textContent = overdue
+        ? "Treino rápido: revisões vencidas priorizadas."
+        : weakType
+            ? "Treino rápido focado no tipo " + weakType + "."
+            : "Treino rápido de identificação geral iniciado.";
+});
 quizWeakestTypePractice.addEventListener("click", () => {
     const type = weakestQuizTrainingType();
     if (!type) {
