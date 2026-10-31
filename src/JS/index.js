@@ -846,6 +846,14 @@ quizBalancedPlan.className = "quiz-revisao";
 quizBalancedPlan.textContent = "Copiar plano equilibrado (10 revisões/dia)";
 quizBalancedPlan.setAttribute("aria-label",
     "Distribuir revisões previstas em sete dias sem alterar vencimentos");
+// Aggregate overdue revision bands without exposing Pokémon identities.
+const quizBacklogTriage = document.createElement("button");
+quizBacklogTriage.type = "button";
+quizBacklogTriage.className = "quiz-revisao";
+quizBacklogTriage.textContent = "Copiar diagnóstico de revisões atrasadas";
+quizBacklogTriage.setAttribute("aria-label",
+    "Copiar contagens de revisões por atraso e intervalo de estudo");
+
 const quizPriorityExport = document.createElement("button");
 quizPriorityExport.type = "button";
 quizPriorityExport.className = "quiz-revisao";
@@ -854,7 +862,7 @@ quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -2242,6 +2250,53 @@ quizBalancedPlan.addEventListener("click", async () => {
     } catch {
         quizHistoryImportStatus.textContent =
             "Não foi possível copiar o plano equilibrado.";
+    }
+});
+
+quizBacklogTriage.addEventListener("click", async () => {
+    const now = Date.now();
+    const bands = {today:0,days1to6:0,days7to29:0,days30plus:0,
+        upcoming7:0,later:0,invalid:0};
+    const intervals = {day1:0,day3:0,day7:0};
+    const known = new Set(quizCards.map(card => card.number));
+    for (const [number, review] of quizSpacedReviews) {
+        if (!known.has(number) || !review ||
+            !Number.isSafeInteger(review.dueAt) ||
+            review.dueAt <= 0 || !Number.isSafeInteger(review.step) ||
+            review.step < 0 || review.step > 2) {
+            bands.invalid++;
+            continue;
+        }
+        intervals[["day1","day3","day7"][review.step]]++;
+        const delta = now - review.dueAt;
+        if (delta >= 30 * QUIZ_DAY_MS) bands.days30plus++;
+        else if (delta >= 7 * QUIZ_DAY_MS) bands.days7to29++;
+        else if (delta >= QUIZ_DAY_MS) bands.days1to6++;
+        else if (delta >= 0) bands.today++;
+        else if (-delta <= 7 * QUIZ_DAY_MS) bands.upcoming7++;
+        else bands.later++;
+    }
+    const lines = [
+        "Diagnóstico local de revisões Pokémon",
+        "Atrasadas 30+ dias: " + bands.days30plus,
+        "Atrasadas 7 a 29 dias: " + bands.days7to29,
+        "Atrasadas 1 a 6 dias: " + bands.days1to6,
+        "Vencidas há menos de 24 horas: " + bands.today,
+        "Próximos 7 dias: " + bands.upcoming7,
+        "Posteriores: " + bands.later,
+        "Registros ignorados por inconsistência: " + bands.invalid,
+        "Intervalo de 1 dia: " + intervals.day1,
+        "Intervalo de 3 dias: " + intervals.day3,
+        "Intervalo de 7 dias: " + intervals.day7,
+        "Resumo consultivo; nenhum vencimento ou resultado foi alterado."
+    ];
+    try {
+        await navigator.clipboard.writeText(lines.join("\n"));
+        quizHistoryImportStatus.textContent =
+            "Diagnóstico de revisões copiado.";
+    } catch {
+        quizHistoryImportStatus.textContent =
+            "Não foi possível copiar o diagnóstico.";
     }
 });
 
