@@ -775,6 +775,25 @@ quizWeakestTypePractice.setAttribute("aria-label",
     "Iniciar treino direcionado ao tipo com menor precisão no histórico local");
 // Five-question sprint prioritizes overdue spaced reviews, then weak types.
 // Uses the existing local quiz engine and never uploads player progress.
+// Keep an interrupted round in memory when the player closes the dialog.
+// Nothing is uploaded or persisted; reloading the page discards the session.
+const quizResumeButton = document.createElement("button");
+quizResumeButton.type = "button";
+quizResumeButton.className = "quiz-revisao";
+quizResumeButton.textContent = "Retomar quiz interrompido";
+quizResumeButton.hidden = true;
+quizResumeButton.setAttribute("aria-label",
+    "Retomar a pergunta atual sem reiniciar pontos ou sequência");
+quizButton.insertAdjacentElement("afterend", quizResumeButton);
+quizResumeButton.addEventListener("click", () => {
+    if (!quizQuestions.length || quizIndex >= quizRoundSize || quizDialog.open) return;
+    quizDifficulty.disabled = true;
+    quizLength.disabled = true;
+    quizCollection.disabled = true;
+    quizResumeButton.hidden = true;
+    quizDialog.showModal();
+});
+
 const quizDailySprint = document.createElement("button");
 quizDailySprint.type = "button";
 quizDailySprint.className = "quiz-revisao";
@@ -1640,6 +1659,7 @@ function selectFocusedQuizQuestions(pool, requested) {
 
 function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null) {
     if (quizCards.length < 4) return;
+    quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
     quizDifficulty.disabled = true;
     quizLength.disabled = true;
@@ -1722,6 +1742,19 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     })();
     // Preserve due-date order for overdue sessions. Other modes still
     // interleave types to avoid repetitive silhouettes.
+    if (!selectedQuestions.length) {
+        // A focused overdue/mistake queue can legitimately become empty.
+        // Never render an undefined question or record an empty round.
+        quizQuestions = [];
+        quizRoundSize = 0;
+        quizDifficulty.disabled = false;
+        quizLength.disabled = false;
+        quizCollection.disabled = false;
+        quizFeedback.textContent = "Nenhuma pergunta disponível neste filtro.";
+        quizHistoryImportStatus.textContent =
+            "Fila vazia. Altere o tipo ou aguarde novas revisões.";
+        return;
+    }
     quizQuestions = dueOnly ? selectedQuestions : spaceQuizQuestions(selectedQuestions);
     quizRoundSize = quizQuestions.length;
     quizMissed = [];
@@ -2381,5 +2414,6 @@ quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
     quizLength.disabled = false;
     quizCollection.disabled = false;
+    quizResumeButton.hidden = !(quizQuestions.length > 0 && quizIndex < quizRoundSize);
     quizButton.focus();
 });
