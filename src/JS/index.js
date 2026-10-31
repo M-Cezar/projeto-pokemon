@@ -458,6 +458,15 @@ quizUrgentReviewButton.textContent = "Revisar atrasos de 7+ dias";
 quizDueButton.insertAdjacentElement("afterend", quizUrgentReviewButton);
 quizUrgentReviewButton.addEventListener("click", () =>
     startQuiz(false, null, true, 7));
+// Practice only cards that are both overdue and still in the mistake queue.
+// This uses the existing spaced-review engine without changing due dates.
+const quizDueMistakesButton = document.createElement("button");
+quizDueMistakesButton.type = "button";
+quizDueMistakesButton.className = "abrir-quiz";
+quizDueMistakesButton.textContent = "Revisar erros vencidos";
+quizUrgentReviewButton.insertAdjacentElement("afterend", quizDueMistakesButton);
+quizDueMistakesButton.addEventListener("click", () =>
+    startQuiz(false, null, true, 0, true));
 const quizPracticeQueue = document.createElement("button");
 quizPracticeQueue.type = "button";
 quizPracticeQueue.className = "abrir-quiz";
@@ -522,6 +531,11 @@ function updateDueReviewButton() {
     const urgent = dueReviewCards().filter(card =>
         quizSpacedReviews.get(card.number)?.dueAt <= Date.now() - 7 * QUIZ_DAY_MS).length;
     quizUrgentReviewButton.disabled = urgent === 0;
+    const dueMistakes = dueReviewCards().filter(card =>
+        quizPracticeNumbers.has(card.number)).length;
+    quizDueMistakesButton.disabled = dueMistakes === 0;
+    quizDueMistakesButton.textContent =
+        "Revisar erros vencidos (" + dueMistakes + ")";
     quizUrgentReviewButton.textContent = "Revisar atrasos de 7+ dias (" + urgent + ")";
     quizDueButton.setAttribute("aria-label", due
         ? "Iniciar revisão de " + due + " Pokémon com prazo vencido"
@@ -1585,7 +1599,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false) {
     if (quizCards.length < 4) return;
     activeQuizDifficulty = quizDifficulty.value;
     quizDifficulty.disabled = true;
@@ -1623,7 +1637,8 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     activeQuizType = useFocus ? focusType : selectedType;
     const overduePool = dueOnly ? dueReviewCards().filter(card =>
         (quizSpacedReviews.get(card.number)?.dueAt ?? Infinity) <=
-        Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS) : [];
+        Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS &&
+        (!dueMistakesOnly || quizPracticeNumbers.has(card.number))) : [];
     const pool = dueOnly ? (focusType ? overduePool.filter(card =>
         card.types.includes(focusType)) : overduePool) : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
