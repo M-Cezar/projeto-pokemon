@@ -807,6 +807,13 @@ quizWeeklyCopyPlan.className = "quiz-revisao";
 quizWeeklyCopyPlan.textContent = "Copiar plano semanal de estudos";
 quizWeeklyCopyPlan.setAttribute("aria-label",
     "Copiar contagens de revisões espaçadas por dia, sem dados pessoais");
+// Suggested study allocation never changes actual spaced-review deadlines.
+const quizBalancedPlan = document.createElement("button");
+quizBalancedPlan.type = "button";
+quizBalancedPlan.className = "quiz-revisao";
+quizBalancedPlan.textContent = "Copiar plano equilibrado (10 revisões/dia)";
+quizBalancedPlan.setAttribute("aria-label",
+    "Distribuir revisões previstas em sete dias sem alterar vencimentos");
 const quizPriorityExport = document.createElement("button");
 quizPriorityExport.type = "button";
 quizPriorityExport.className = "quiz-revisao";
@@ -815,7 +822,7 @@ quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizPriorityExport, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -2140,6 +2147,59 @@ quizDialog.addEventListener("keydown", event => {
         quizNext.click();
     }
 });
+quizBalancedPlan.addEventListener("click", async () => {
+    const now = Date.now();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const known = new Set(quizCards.map(card => card.number));
+    const calendarDay = value => {
+        const day = new Date(value);
+        return Date.UTC(day.getFullYear(), day.getMonth(), day.getDate());
+    };
+    const todayKey = calendarDay(start.getTime());
+    const queue = [...quizSpacedReviews].filter(([number, review]) =>
+        known.has(number) && review &&
+        Number.isSafeInteger(review.dueAt) && review.dueAt > 0 &&
+        Number.isSafeInteger(review.step) && review.step >= 0 &&
+        review.step <= 2).sort((a, b) =>
+        a[1].dueAt - b[1].dueAt || a[0].localeCompare(b[0]));
+    const days = Array.from({length:7}, (_, index) => ({
+        index, count:0, overdue:0, upcoming:0
+    }));
+    let outsideWindow = 0, overflow = 0;
+    for (const [, review] of queue) {
+        const dueDay = Math.floor((calendarDay(review.dueAt) - todayKey) /
+            QUIZ_DAY_MS);
+        if (dueDay >= 7) {outsideWindow++;continue;}
+        const first = Math.max(0, dueDay);
+        const slot = days.find(day => day.index >= first && day.count < 10);
+        if (!slot) {overflow++;continue;}
+        slot.count++;
+        if (review.dueAt <= now) slot.overdue++;
+        else slot.upcoming++;
+    }
+    const lines = [
+        "Plano sugerido de revisões Pokémon (até 10 por dia)",
+        ...days.map(day => {
+            const date = new Date(start);
+            date.setDate(date.getDate() + day.index);
+            return date.toLocaleDateString("pt-BR") + ": " +
+                day.count + " revisão(ões), " + day.overdue +
+                " já vencida(s), " + day.upcoming + " agendada(s)";
+        }),
+        "Sem vaga na semana: " + overflow,
+        "Vencimento além da semana: " + outsideWindow,
+        "Plano consultivo. Os prazos reais permanecem inalterados."
+    ];
+    try {
+        await navigator.clipboard.writeText(lines.join("\n"));
+        quizHistoryImportStatus.textContent = "Plano equilibrado copiado.";
+    } catch {
+        quizHistoryImportStatus.textContent =
+            "Não foi possível copiar o plano equilibrado.";
+    }
+});
+
 quizWeeklyCopyPlan.addEventListener("click", async () => {
     const now = Date.now();
     const startOfToday = new Date(now);
@@ -2156,8 +2216,11 @@ quizWeeklyCopyPlan.addEventListener("click", async () => {
         } else {
             const dueDate = new Date(entry.dueAt);
             dueDate.setHours(0, 0, 0, 0);
-            const day = Math.round((dueDate.getTime() -
-                startOfToday.getTime()) / QUIZ_DAY_MS);
+            // Calendar-day difference remains correct across DST transitions.
+            const day = Math.round((Date.UTC(dueDate.getFullYear(),
+                dueDate.getMonth(), dueDate.getDate()) -
+                Date.UTC(startOfToday.getFullYear(),
+                startOfToday.getMonth(), startOfToday.getDate())) / QUIZ_DAY_MS);
             if (day >= 0 && day < 7) buckets[day].count++;
         }
     }
