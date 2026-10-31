@@ -2037,9 +2037,13 @@ quizReviewCalendarIcs.addEventListener("click", () => {
         quizHistoryImportStatus.textContent = "Nenhuma revisão agendada.";
         return;
     }
+    // Overdue cards share the same original deadline. Assign separate
+    // fifteen-minute slots so calendar imports do not overlap all reminders.
+    let nextSlot = Math.ceil(now / (15 * 60_000)) * 15 * 60_000;
     const events = entries.map(([number, review]) => {
         const card = cards.get(number);
-        const start = Math.max(now, review.dueAt);
+        const start = Math.max(nextSlot, review.dueAt);
+        nextSlot = start + 15 * 60_000;
         return [
             "BEGIN:VEVENT",
             "UID:pokemon-review-" + number + "-" + review.dueAt + "@local",
@@ -2049,7 +2053,9 @@ quizReviewCalendarIcs.addEventListener("click", () => {
             "SUMMARY:" + escape("Revisar Pokémon: " + card.name),
             "DESCRIPTION:" + escape("Revisão espaçada de " + card.name +
                 ". Tipos: " + card.types.join(", ") +
-                ". Intervalo: " + [1, 3, 7][review.step] + " dia(s)."),
+                ". Intervalo: " + [1, 3, 7][review.step] + " dia(s)." +
+                (review.dueAt < now ? " Revisão originalmente vencida em " +
+                    new Date(review.dueAt).toLocaleString("pt-BR") + "." : "")),
             "END:VEVENT"
         ].join("\r\n");
     });
