@@ -641,6 +641,13 @@ quizWeeklyPlan.className = "quiz-revisao";
 quizWeeklyPlan.textContent = "Copiar plano de treino de 7 dias";
 quizWeeklyPlan.setAttribute("aria-label",
     "Copiar um plano semanal de treino com metas diárias e tipos prioritários");
+// Read-only study queue grouped by type and due date.
+const quizReviewTypePlan = document.createElement("button");
+quizReviewTypePlan.type = "button";
+quizReviewTypePlan.className = "quiz-revisao";
+quizReviewTypePlan.textContent = "Copiar prioridades das revisões por tipo";
+quizReviewTypePlan.setAttribute("aria-label",
+    "Copiar revisões vencidas e próximas por tipo sem alterar o histórico");
 const quizHistoryBackup = document.createElement("button");
 quizHistoryBackup.type = "button";
 quizHistoryBackup.className = "quiz-revisao";
@@ -681,7 +688,7 @@ quizReviewWorkload.setAttribute("aria-label",
     "Exportar contagens diárias de revisões pendentes e futuras");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyPlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -986,6 +993,42 @@ quizWeeklyPlan.addEventListener("click", async () => {
     } catch {
         quizHistoryImportStatus.textContent =
             "Não foi possível copiar o plano. Verifique a permissão do navegador.";
+    }
+});
+quizReviewTypePlan.addEventListener("click", async () => {
+    const now = Date.now();
+    const horizon = now + 7 * QUIZ_DAY_MS;
+    const byType = new Map();
+    for (const card of quizCards) {
+        const review = quizSpacedReviews.get(card.number);
+        if (!review || !Number.isSafeInteger(review.dueAt) ||
+            review.dueAt <= 0 || review.dueAt > horizon) continue;
+        for (const type of new Set(card.types)) {
+            const row = byType.get(type) || {type, overdue:0, upcoming:0,
+                next:Infinity, names:[]};
+            if (review.dueAt <= now) row.overdue++;
+            else row.upcoming++;
+            row.next = Math.min(row.next, review.dueAt);
+            if (row.names.length < 5) row.names.push(card.name);
+            byType.set(type,row);
+        }
+    }
+    const rows = [...byType.values()].sort((a,b)=>
+        b.overdue-a.overdue || a.next-b.next ||
+        a.type.localeCompare(b.type,"pt-BR"));
+    const lines = ["Revisões Pokémon por tipo (próximos 7 dias)",
+        ...rows.map((row,index)=>(index+1)+". "+row.type+
+            ": "+row.overdue+" vencida(s), "+row.upcoming+
+            " próxima(s). Exemplos: "+row.names.join(", "))];
+    if (!rows.length) lines.push("Nenhuma revisão prevista nesse período.");
+    lines.push("Plano consultivo: revisões e capturas permanecem inalteradas.");
+    try {
+        await navigator.clipboard.writeText(lines.join("\n"));
+        quizHistoryImportStatus.textContent =
+            "Prioridades de revisão por tipo copiadas.";
+    } catch {
+        quizHistoryImportStatus.textContent =
+            "Não foi possível copiar. Verifique a permissão do navegador.";
     }
 });
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
