@@ -2142,6 +2142,8 @@ quizDialog.addEventListener("keydown", event => {
 });
 quizWeeklyCopyPlan.addEventListener("click", async () => {
     const now = Date.now();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
     const buckets = Array.from({length: 7}, (_, day) => ({
         day, count: 0
     }));
@@ -2152,22 +2154,26 @@ quizWeeklyCopyPlan.addEventListener("click", async () => {
             overdue++;
             buckets[0].count++;
         } else {
-            const day = Math.floor((entry.dueAt - now) / QUIZ_DAY_MS) + 1;
-            if (day < 7) buckets[day].count++;
+            const dueDate = new Date(entry.dueAt);
+            dueDate.setHours(0, 0, 0, 0);
+            const day = Math.round((dueDate.getTime() -
+                startOfToday.getTime()) / QUIZ_DAY_MS);
+            if (day >= 0 && day < 7) buckets[day].count++;
         }
     }
     const lines = [
         "Plano de revisões Pokémon (próximos 7 dias)",
         "Revisões já vencidas: " + overdue,
         ...buckets.map(item => {
-            const date = new Date(now + item.day * QUIZ_DAY_MS);
+            const date = new Date(startOfToday);
+            date.setDate(date.getDate() + item.day);
             return date.toLocaleDateString("pt-BR") + ": " +
                 item.count + " revisão(ões) prevista(s)";
         }),
         "Previsão local; a agenda muda conforme os resultados dos treinos."
     ];
     try {
-        await navigator.clipboard.writeText(lines.join("\\n"));
+        await navigator.clipboard.writeText(lines.join("\n"));
         quizHistoryImportStatus.textContent = "Plano semanal copiado.";
     } catch {
         quizHistoryImportStatus.textContent =
