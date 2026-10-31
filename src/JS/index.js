@@ -451,6 +451,17 @@ quizDueButton.type = "button";
 quizDueButton.className = "abrir-quiz";
 quizButton.insertAdjacentElement("afterend", quizDueButton);
 // Focused rescue mode: only reviews overdue by at least seven full days.
+// A five-question session reduces the cost of clearing an overdue backlog.
+// It uses the same spaced-review scoring and never changes deadlines upfront.
+const quizQuickReviewButton = document.createElement("button");
+quizQuickReviewButton.type = "button";
+quizQuickReviewButton.className = "abrir-quiz";
+quizQuickReviewButton.textContent = "Revisão rápida (até 5)";
+quizQuickReviewButton.setAttribute("aria-label",
+    "Treinar até cinco revisões vencidas, começando pelas mais antigas");
+quizDueButton.insertAdjacentElement("afterend", quizQuickReviewButton);
+quizQuickReviewButton.addEventListener("click", () =>
+    startQuiz(false, null, true, 0, false, 5));
 const quizUrgentReviewButton = document.createElement("button");
 quizUrgentReviewButton.type = "button";
 quizUrgentReviewButton.className = "abrir-quiz";
@@ -527,6 +538,7 @@ function updateDueReviewButton() {
     const due = dueReviewCards().length;
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
     quizDueButton.disabled = due === 0;
+    quizQuickReviewButton.disabled = due === 0;
     quizDueTypeButton.disabled = due === 0;
     const urgent = dueReviewCards().filter(card =>
         quizSpacedReviews.get(card.number)?.dueAt <= Date.now() - 7 * QUIZ_DAY_MS).length;
@@ -1626,7 +1638,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null) {
     if (quizCards.length < 4) return;
     activeQuizDifficulty = quizDifficulty.value;
     quizDifficulty.disabled = true;
@@ -1678,7 +1690,9 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
-    const requested = Number(quizLength.value) || 10;
+    const chosenLength = Number(quizLength.value) || 10;
+    const requested = Number.isSafeInteger(questionLimit) && questionLimit > 0
+        ? Math.min(chosenLength, questionLimit) : chosenLength;
     // General practice revisits a few saved mistakes without turning the
     // entire session into review mode. Correct answers remove them from the
     // persisted practice set, so future sessions adapt automatically.
