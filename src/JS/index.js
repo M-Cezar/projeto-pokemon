@@ -521,8 +521,14 @@ function updateDueReviewButton() {
             review && Number.isSafeInteger(review.dueAt) && review.dueAt > now)
         .sort((a, b) => a[1].dueAt - b[1].dueAt);
     if (due) {
+        const oldest = dueReviewCards().reduce((min, card) => {
+            const deadline = quizSpacedReviews.get(card.number)?.dueAt;
+            return Number.isSafeInteger(deadline) ? Math.min(min, deadline) : min;
+        }, now);
+        const daysLate = Math.max(0, Math.floor((now - oldest) / QUIZ_DAY_MS));
         quizNextReviewStatus.textContent =
-            due + " revisão(ões) vencida(s). Priorize o treino espaçado.";
+            due + " revisão(ões) vencida(s). Mais antiga há " +
+            daysLate + " dia(s). O treino prioriza os prazos mais antigos.";
     } else if (upcoming.length) {
         quizNextReviewStatus.textContent = "Próxima revisão: " +
             new Date(upcoming[0][1].dueAt).toLocaleString("pt-BR") +
@@ -1621,6 +1627,12 @@ function startQuiz(review = false, focusType = null, dueOnly = false) {
     // persisted practice set, so future sessions adapt automatically.
     const selectedQuestions = (() => {
         if (quizIsReview) return reviewPool;
+        // Due-only sessions review the oldest deadlines first, not a random
+        // sample that could repeatedly postpone the most overdue cards.
+        if (dueOnly) return [...pool].sort((a, b) =>
+            (quizSpacedReviews.get(a.number)?.dueAt ?? Infinity) -
+            (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
+            a.number.localeCompare(b.number)).slice(0, requested);
         if (activeQuizCollection !== "todos") return selectFocusedQuizQuestions(pool, requested);
         const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
         const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)))
