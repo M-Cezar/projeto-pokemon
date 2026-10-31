@@ -661,6 +661,15 @@ quizReview.type = "button";
 quizReview.className = "quiz-revisao";
 quizReview.textContent = "Revisar erros";
 quizReview.hidden = true;
+const quizPause = document.createElement("button");
+quizPause.type = "button";
+quizPause.className = "quiz-fechar";
+quizPause.textContent = "Pausar e continuar depois";
+quizPause.setAttribute("aria-label",
+    "Pausar a rodada atual e permitir retomá-la sem perder a pontuação");
+quizPause.addEventListener("click", () => {
+    if (quizDialog.open && quizIndex < quizRoundSize) quizDialog.close();
+});
 const quizClose = document.createElement("button");
 quizClose.type = "button";
 quizClose.className = "quiz-fechar";
@@ -895,7 +904,7 @@ quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -1427,6 +1436,7 @@ function updateQuizTrainingSummary() {
 }
 
 function showQuizQuestion() {
+    quizPause.hidden = false;
     quizAnswered = false;
     quizHintUsed = false;
     quizHintLevel = 0;
@@ -1774,6 +1784,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     showQuizQuestion();
 }
 function finishQuiz() {
+    quizPause.hidden = true;
     quizDifficulty.disabled = false;
     quizLength.disabled = false;
     quizCollection.disabled = false;
