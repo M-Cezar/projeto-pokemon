@@ -665,9 +665,17 @@ quizReviewCalendarIcs.className = "quiz-revisao";
 quizReviewCalendarIcs.textContent = "Adicionar revisões ao calendário (ICS)";
 quizReviewCalendarIcs.setAttribute("aria-label",
     "Baixar lembretes de revisão espaçada para calendário local");
+// Aggregate the next seven local study days without exposing captures or
+// changing the spaced-repetition queue.
+const quizReviewWorkload = document.createElement("button");
+quizReviewWorkload.type = "button";
+quizReviewWorkload.className = "quiz-revisao";
+quizReviewWorkload.textContent = "Resumo de revisões da semana (CSV)";
+quizReviewWorkload.setAttribute("aria-label",
+    "Exportar contagens diárias de revisões pendentes e futuras");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizWeeklyPlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyPlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -1701,6 +1709,56 @@ quizReviewCalendarExport.addEventListener("click", () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+quizReviewWorkload.addEventListener("click", () => {
+    const cards = new Map(quizCards.map(card => [card.number, card]));
+    const now = Date.now();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const days = Array.from({length: 7}, (_, index) => {
+        const day = new Date(start);
+        day.setDate(day.getDate() + index);
+        return {date: day.toLocaleDateString("pt-BR"),
+            start: day.getTime(), end: new Date(day).setDate(day.getDate() + 1),
+            scheduled: 0, overdue: 0, byType: new Map()};
+    });
+    for (const [number, review] of quizSpacedReviews) {
+        const card = cards.get(number);
+        if (!card || !review || !Number.isSafeInteger(review.dueAt) ||
+            review.dueAt <= 0 || !Number.isSafeInteger(review.step) ||
+            review.step < 0 || review.step > 2) continue;
+        const day = days.find(item =>
+            review.dueAt >= item.start && review.dueAt < item.end) ||
+            (review.dueAt < days[0].start ? days[0] : null);
+        if (!day) continue;
+        if (review.dueAt < now) day.overdue++;
+        else day.scheduled++;
+        for (const type of card.types)
+            day.byType.set(type, (day.byType.get(type) || 0) + 1);
+    }
+    const rows = [["Dia", "Agendadas", "Vencidas", "Total", "Tipos prioritários"],
+        ...days.map(day => [day.date, day.scheduled, day.overdue,
+            day.scheduled + day.overdue,
+            [...day.byType].sort((a, b) => b[1] - a[1] ||
+                a[0].localeCompare(b[0], "pt-BR"))
+                .slice(0, 3).map(([type, count]) => type + ": " + count).join(" / ")])];
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 128);
+        if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const csv = "\ufeff" + rows.map(row => row.map(cell).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv],
+        {type: "text/csv;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-revisoes-semana.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    quizHistoryImportStatus.textContent =
+        "Resumo semanal exportado sem modificar as revisões.";
 });
 quizReviewCalendarIcs.addEventListener("click", () => {
     const cards = new Map(quizCards.map(card => [card.number, card]));
