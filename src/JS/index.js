@@ -450,6 +450,14 @@ const quizDueButton = document.createElement("button");
 quizDueButton.type = "button";
 quizDueButton.className = "abrir-quiz";
 quizButton.insertAdjacentElement("afterend", quizDueButton);
+// Focused rescue mode: only reviews overdue by at least seven full days.
+const quizUrgentReviewButton = document.createElement("button");
+quizUrgentReviewButton.type = "button";
+quizUrgentReviewButton.className = "abrir-quiz";
+quizUrgentReviewButton.textContent = "Revisar atrasos de 7+ dias";
+quizDueButton.insertAdjacentElement("afterend", quizUrgentReviewButton);
+quizUrgentReviewButton.addEventListener("click", () =>
+    startQuiz(false, null, true, 7));
 const quizPracticeQueue = document.createElement("button");
 quizPracticeQueue.type = "button";
 quizPracticeQueue.className = "abrir-quiz";
@@ -511,6 +519,10 @@ function updateDueReviewButton() {
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
     quizDueButton.disabled = due === 0;
     quizDueTypeButton.disabled = due === 0;
+    const urgent = dueReviewCards().filter(card =>
+        quizSpacedReviews.get(card.number)?.dueAt <= Date.now() - 7 * QUIZ_DAY_MS).length;
+    quizUrgentReviewButton.disabled = urgent === 0;
+    quizUrgentReviewButton.textContent = "Revisar atrasos de 7+ dias (" + urgent + ")";
     quizDueButton.setAttribute("aria-label", due
         ? "Iniciar revisão de " + due + " Pokémon com prazo vencido"
         : "Nenhuma revisão espaçada pendente");
@@ -1573,7 +1585,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0) {
     if (quizCards.length < 4) return;
     activeQuizDifficulty = quizDifficulty.value;
     quizDifficulty.disabled = true;
@@ -1609,8 +1621,11 @@ function startQuiz(review = false, focusType = null, dueOnly = false) {
     const useFocus = focusedPool.length >= 4;
     activeQuizCollection = dueOnly ? "revisoes" : useFocus ? "tipo" : quizCollection.value;
     activeQuizType = useFocus ? focusType : selectedType;
-    const pool = dueOnly ? (focusType ? dueReviewCards().filter(card =>
-        card.types.includes(focusType)) : dueReviewCards()) : useFocus ? focusedPool : quizCollection.value === "capturados"
+    const overduePool = dueOnly ? dueReviewCards().filter(card =>
+        (quizSpacedReviews.get(card.number)?.dueAt ?? Infinity) <=
+        Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS) : [];
+    const pool = dueOnly ? (focusType ? overduePool.filter(card =>
+        card.types.includes(focusType)) : overduePool) : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
         : quizCollection.value === "pendentes"
             ? quizCards.filter(card => !capturados.has(card.number))
