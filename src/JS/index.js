@@ -2068,9 +2068,9 @@ quizReviewCalendarIcs.addEventListener("click", () => {
     quizHistoryImportStatus.textContent =
         events.length + " lembrete(s) exportado(s) para calendário.";
 });
-// Keyboard-accessible play: answer with 1-5, request a hint with H,
-// skip with S or advance with N. Never intercept form inputs or modifiers.
-quizDialog.setAttribute("aria-keyshortcuts", "1 2 3 4 5 H S N");
+// Keyboard-accessible play. Expert difficulty exposes six answers.
+// Arrow/Home/End move focus only among active answers; they never submit.
+quizDialog.setAttribute("aria-keyshortcuts", "1 2 3 4 5 6 ArrowUp ArrowDown ArrowLeft ArrowRight Home End H S N");
 quizDialog.addEventListener("keydown", event => {
     if (!quizDialog.open || event.repeat || event.ctrlKey ||
         event.metaKey || event.altKey || event.isComposing) return;
@@ -2078,13 +2078,22 @@ quizDialog.addEventListener("keydown", event => {
     if (target instanceof HTMLElement &&
         (target.isContentEditable || target.closest("input,select,textarea"))) return;
     const key = event.key.toLowerCase();
-    if (/^[1-5]$/.test(key) && !quizAnswered) {
-        const options = [...quizOptions.querySelectorAll("button")];
+    const options = [...quizOptions.querySelectorAll("button")].filter(
+        button => !button.disabled && !button.hidden);
+    if (/^[1-6]$/.test(key) && !quizAnswered) {
         const choice = options[Number(key) - 1];
-        if (choice && !choice.disabled && !choice.hidden) {
+        if (choice) {
             event.preventDefault();
             choice.click();
         }
+    } else if (!quizAnswered && options.length &&
+        ["arrowup", "arrowdown", "arrowleft", "arrowright", "home", "end"].includes(key)) {
+        event.preventDefault();
+        const current = options.indexOf(document.activeElement);
+        const next = key === "home" ? 0 : key === "end" ? options.length - 1 :
+            current < 0 ? 0 : (current + (key === "arrowup" || key === "arrowleft" ? -1 : 1) +
+                options.length) % options.length;
+        options[next].focus();
     } else if (key === "h" && !quizAnswered && !quizHint.disabled &&
         !quizHint.hidden) {
         event.preventDefault();
