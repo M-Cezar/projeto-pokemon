@@ -619,6 +619,12 @@ quizHistoryPractice.type = "button";
 quizHistoryPractice.className = "quiz-revisao";
 quizHistoryPractice.textContent = "Treinar dificuldade prioritária";
 quizHistoryPractice.disabled = true;
+const quizWeakestTypePractice = document.createElement("button");
+quizWeakestTypePractice.type = "button";
+quizWeakestTypePractice.className = "quiz-revisao";
+quizWeakestTypePractice.textContent = "Treinar tipo com mais erros";
+quizWeakestTypePractice.setAttribute("aria-label",
+    "Iniciar treino direcionado ao tipo com menor precisão no histórico local");
 const quizHistoryList = document.createElement("ol");
 const quizHistoryExport = document.createElement("button");
 quizHistoryExport.type = "button";
@@ -674,7 +680,7 @@ quizReviewWorkload.textContent = "Resumo de revisões da semana (CSV)";
 quizReviewWorkload.setAttribute("aria-label",
     "Exportar contagens diárias de revisões pendentes e futuras");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
-    quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice,
+    quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyPlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
@@ -984,6 +990,17 @@ quizWeeklyPlan.addEventListener("click", async () => {
 });
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryMode.addEventListener("change", renderQuizSessions);
+quizWeakestTypePractice.addEventListener("click", () => {
+    const type = weakestQuizTrainingType();
+    if (!type) {
+        quizHistoryImportStatus.textContent =
+            "Jogue pelo menos três perguntas de um tipo para identificar a prioridade.";
+        return;
+    }
+    startQuiz(false, type);
+    quizHistoryImportStatus.textContent =
+        "Treino direcionado iniciado: " + type + ".";
+});
 quizHistoryPractice.addEventListener("click", () => {
     const recommendation = recommendedQuizDifficulty();
     if (!recommendation) return;
