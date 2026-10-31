@@ -450,6 +450,13 @@ const quizDueButton = document.createElement("button");
 quizDueButton.type = "button";
 quizDueButton.className = "abrir-quiz";
 quizButton.insertAdjacentElement("afterend", quizDueButton);
+const quizPracticeQueue = document.createElement("button");
+quizPracticeQueue.type = "button";
+quizPracticeQueue.className = "abrir-quiz";
+quizPracticeQueue.textContent = "Exportar fila de treino (CSV)";
+quizPracticeQueue.setAttribute("aria-label",
+    "Baixar lista priorizada de Pokémon com revisões vencidas e erros anteriores");
+quizDueButton.insertAdjacentElement("afterend", quizPracticeQueue);
 function updateDueReviewButton() {
     const due = dueReviewCards().length;
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
@@ -1612,6 +1619,51 @@ quizDueButton.addEventListener("click", () => {
     if (!dueReviewCards().length || quizCards.length < 4) return;
     startQuiz(false, null, true);
     quizDialog.showModal();
+});
+quizPracticeQueue.addEventListener("click", () => {
+    const now = Date.now();
+    const rows = quizCards.map(card => {
+        const review = quizSpacedReviews.get(card.number);
+        const dueAt = Number.isSafeInteger(review?.dueAt) && review.dueAt > 0
+            ? review.dueAt : null;
+        const overdue = dueAt !== null && dueAt <= now;
+        const missed = quizPracticeNumbers.has(card.number);
+        const weakness = quizTypeWeakness(card);
+        const priority = overdue ? 0 : missed ? 1 : dueAt !== null ? 2 : 3;
+        return {card, dueAt, overdue, missed, weakness, priority};
+    }).filter(item => item.priority < 3)
+        .sort((a, b) => a.priority - b.priority ||
+            b.weakness - a.weakness ||
+            (a.dueAt ?? Number.MAX_SAFE_INTEGER) -
+            (b.dueAt ?? Number.MAX_SAFE_INTEGER) ||
+            a.card.number.localeCompare(b.card.number)).slice(0, 100);
+    if (!rows.length) {
+        quizHistoryImportStatus.textContent = "Nenhum Pokémon na fila de treino.";
+        return;
+    }
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0, 160);
+        if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const data = [["Pokémon", "Tipos", "Prioridade", "Erro anterior",
+        "Revisão vencida", "Próxima revisão"], ...rows.map(item => [
+        item.card.name, item.card.types.join(", "),
+        item.priority === 0 ? "Vencida" : item.priority === 1 ? "Erro" : "Agendada",
+        item.missed ? "Sim" : "Não", item.overdue ? "Sim" : "Não",
+        item.dueAt === null ? "" : new Date(item.dueAt).toISOString()
+    ])];
+    const csv = "\ufeff" + data.map(row => row.map(cell).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-fila-treino.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    quizHistoryImportStatus.textContent = rows.length +
+        " Pokémon exportados para revisão, sem alterar o progresso.";
 });
 quizReview.addEventListener("click", () => startQuiz(true));
 quizWeakType.addEventListener("click", () => {
