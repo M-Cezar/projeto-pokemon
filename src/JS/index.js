@@ -686,9 +686,16 @@ quizReviewWorkload.className = "quiz-revisao";
 quizReviewWorkload.textContent = "Resumo de revisões da semana (CSV)";
 quizReviewWorkload.setAttribute("aria-label",
     "Exportar contagens diárias de revisões pendentes e futuras");
+// A local prioritized revision queue, never modifying capture or review state.
+const quizPriorityExport = document.createElement("button");
+quizPriorityExport.type = "button";
+quizPriorityExport.className = "quiz-revisao";
+quizPriorityExport.textContent = "Exportar fila prioritária de revisões (CSV)";
+quizPriorityExport.setAttribute("aria-label",
+    "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizPriorityExport, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizClose);
 document.body.append(quizDialog);
@@ -1769,6 +1776,41 @@ quizReviewCalendarExport.addEventListener("click", () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+quizPriorityExport.addEventListener("click", () => {
+    const now = Date.now();
+    const cards = new Map(quizCards.map(card => [card.number, card]));
+    const horizon = now + 7 * QUIZ_DAY_MS;
+    const queue = [...quizSpacedReviews].flatMap(([number, review]) => {
+        const card = cards.get(number);
+        if (!card || !review || !Number.isSafeInteger(review.dueAt) ||
+            review.dueAt <= 0 || review.dueAt > horizon ||
+            !Number.isSafeInteger(review.step) || review.step < 0 ||
+            review.step > 2) return [];
+        return [{number, name:card.name, types:card.types.join(", "),
+            dueAt:review.dueAt, overdue:review.dueAt <= now,
+            interval:[1,3,7][review.step]}];
+    }).sort((a,b)=>a.dueAt-b.dueAt||a.number-b.number);
+    const cell = value => {
+        let safe = String(value ?? "").replace(/[\r\n\u2028\u2029]/g, " ").slice(0,128);
+        if (/^\s*[=+@-]/.test(safe)) safe = "'" + safe;
+        return '"' + safe.replace(/"/g,'""') + '"';
+    };
+    const rows = [["Prioridade","Pokémon","Tipos","Próxima revisão",
+        "Situação","Intervalo (dias)"],
+        ...queue.map((item,index)=>[index+1,item.name,item.types,
+            new Date(item.dueAt).toLocaleString("pt-BR"),
+            item.overdue?"Vencida":"Agendada",item.interval])];
+    const csv = "\ufeff" + rows.map(row=>row.map(cell).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv],
+        {type:"text/csv;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pokemon-fila-prioritaria.csv";
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    quizHistoryImportStatus.textContent =
+        queue.length + " revisão(ões) exportada(s) por prioridade.";
 });
 quizReviewWorkload.addEventListener("click", () => {
     const cards = new Map(quizCards.map(card => [card.number, card]));
