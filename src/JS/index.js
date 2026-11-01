@@ -514,6 +514,38 @@ quizDueTypeButton.addEventListener("click", () => {
         b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"))[0];
     if (chosen) startQuiz(false, chosen[0], true);
 });
+// A playable training entry point based on actual historical mistakes.
+// Require a meaningful sample so one accidental error cannot dominate.
+const quizWeakTypeButton = document.createElement("button");
+quizWeakTypeButton.type = "button";
+quizWeakTypeButton.className = "abrir-quiz";
+quizWeakTypeButton.textContent = "Treinar meu tipo mais difícil";
+quizWeakTypeButton.setAttribute("aria-label",
+    "Iniciar quiz do tipo com maior taxa de erros em pelo menos três perguntas");
+quizDueTypeButton.insertAdjacentElement("afterend", quizWeakTypeButton);
+quizWeakTypeButton.addEventListener("click", () => {
+    const ranked = [...quizTypeHistory.entries()]
+        .filter(([type, stats]) => quizCards.some(card => card.types.includes(type)) &&
+            Number.isSafeInteger(stats.asked) && stats.asked >= 3 &&
+            Number.isSafeInteger(stats.correct) && stats.correct <= stats.asked)
+        .map(([type, stats]) => ({
+            type, asked: stats.asked, mistakes: stats.asked - stats.correct,
+            missRate: (stats.asked - stats.correct) / stats.asked
+        }))
+        .filter(item => item.mistakes > 0)
+        .sort((a, b) => b.missRate - a.missRate ||
+            b.mistakes - a.mistakes || b.asked - a.asked ||
+            a.type.localeCompare(b.type, "pt-BR"));
+    if (!ranked.length) {
+        quizNextReviewStatus.textContent =
+            "Responda pelo menos três questões de um tipo antes do treino direcionado.";
+        return;
+    }
+    quizNextReviewStatus.textContent =
+        "Treino direcionado: " + ranked[0].type + " (" +
+        Math.round(ranked[0].missRate * 100) + "% de erros históricos).";
+    startQuiz(false, ranked[0].type);
+});
 const quizNextReviewStatus = document.createElement("p");
 quizNextReviewStatus.setAttribute("role", "status");
 quizNextReviewStatus.setAttribute("aria-live", "polite");
