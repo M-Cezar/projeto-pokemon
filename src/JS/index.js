@@ -462,6 +462,15 @@ quizQuickReviewButton.setAttribute("aria-label",
 quizDueButton.insertAdjacentElement("afterend", quizQuickReviewButton);
 quizQuickReviewButton.addEventListener("click", () =>
     startQuiz(false, null, true, 0, false, 5));
+const quizBalancedDueButton = document.createElement("button");
+quizBalancedDueButton.type = "button";
+quizBalancedDueButton.className = "abrir-quiz";
+quizBalancedDueButton.textContent = "Revisão equilibrada (até 10)";
+quizBalancedDueButton.setAttribute("aria-label",
+    "Misturar revisões vencidas com erros anteriores e outras espécies");
+quizQuickReviewButton.insertAdjacentElement("afterend", quizBalancedDueButton);
+quizBalancedDueButton.addEventListener("click", () =>
+    startQuiz(false, null, true, 0, false, 10, true));
 const quizUrgentReviewButton = document.createElement("button");
 quizUrgentReviewButton.type = "button";
 quizUrgentReviewButton.className = "abrir-quiz";
@@ -539,6 +548,7 @@ function updateDueReviewButton() {
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
     quizDueButton.disabled = due === 0;
     quizQuickReviewButton.disabled = due === 0;
+    quizBalancedDueButton.disabled = due === 0;
     quizDueTypeButton.disabled = due === 0;
     const urgent = dueReviewCards().filter(card =>
         quizSpacedReviews.get(card.number)?.dueAt <= Date.now() - 7 * QUIZ_DAY_MS).length;
@@ -1667,7 +1677,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1730,10 +1740,24 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         if (quizIsReview) return reviewPool;
         // Due-only sessions review the oldest deadlines first, not a random
         // sample that could repeatedly postpone the most overdue cards.
-        if (dueOnly) return [...pool].sort((a, b) =>
-            (quizSpacedReviews.get(a.number)?.dueAt ?? Infinity) -
-            (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
-            a.number.localeCompare(b.number)).slice(0, requested);
+        if (dueOnly) {
+            const oldestFirst = (a, b) =>
+                (quizSpacedReviews.get(a.number)?.dueAt ?? Infinity) -
+                (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
+                a.number.localeCompare(b.number);
+            const ordered = [...pool].sort(oldestFirst);
+            if (!balancedDue) return ordered.slice(0, requested);
+            // Reserve at most half the sprint for saved mistakes, then add
+            // the oldest other cards. Fill any spare places without repeats.
+            const mistakes = ordered.filter(card => quizPracticeNumbers.has(card.number));
+            const other = ordered.filter(card => !quizPracticeNumbers.has(card.number));
+            const selected = [...mistakes.slice(0, Math.ceil(requested / 2)),
+                ...other.slice(0, Math.floor(requested / 2))];
+            const seen = new Set(selected.map(card => card.number));
+            selected.push(...ordered.filter(card => !seen.has(card.number))
+                .slice(0, Math.max(0, requested - selected.length)));
+            return selected.sort(oldestFirst);
+        }
         if (activeQuizCollection !== "todos") return selectFocusedQuizQuestions(pool, requested);
         const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
         const fresh = shuffleQuiz(pool.filter(card => !quizPracticeNumbers.has(card.number)))
