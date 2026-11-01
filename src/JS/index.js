@@ -256,6 +256,28 @@ function loadQuizMistakes() {
     } catch { return new Set(); }
 }
 let quizPracticeNumbers = loadQuizMistakes();
+// Player-marked study species are separate from incorrect answers. They
+// remain available after a correct answer until the player unmarks them.
+const QUIZ_PINNED_KEY = "pokedex:quiz-marcados:v1";
+function loadQuizPinned() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(QUIZ_PINNED_KEY) || "[]");
+        const known = new Set(quizCards.map(card => card.number));
+        return new Set(Array.isArray(saved) && saved.length <= quizCards.length
+            ? saved.filter(id => typeof id === "string" && known.has(id))
+            : []);
+    } catch { return new Set(); }
+}
+let quizPinnedNumbers = loadQuizPinned();
+function saveQuizPinned() {
+    try { localStorage.setItem(QUIZ_PINNED_KEY,
+        JSON.stringify([...quizPinnedNumbers].slice(0, quizCards.length))); }
+    catch { /* Study markers remain available in this tab. */ }
+}
+window.addEventListener("storage", event => {
+    if (event.key === QUIZ_PINNED_KEY || event.key === null)
+        quizPinnedNumbers = loadQuizPinned();
+});
 function saveQuizMistakes() {
     try { localStorage.setItem(QUIZ_MISTAKES_KEY, JSON.stringify([...quizPracticeNumbers])); }
     catch { /* Local storage is optional; this session remains playable. */ }
@@ -665,7 +687,8 @@ quizCollectionLabel.textContent = "Perguntas: ";
 const quizCollection = document.createElement("select");
 for (const [value, label] of [["todos", "Todos os Pokémon"], ["capturados", "Somente capturados"],
     ["pendentes", "Somente ainda não capturados"],
-    ["tipo", "Somente tipo selecionado"], ["erros", "Praticar erros salvos"]]) {
+    ["tipo", "Somente tipo selecionado"], ["erros", "Praticar erros salvos"],
+    ["marcados", "Somente marcados para estudar"]]) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
@@ -699,6 +722,12 @@ quizHint.type = "button";
 quizHint.className = "quiz-dica";
 quizHint.textContent = "Revelar dica";
 quizHint.setAttribute("aria-label", "Revelar dicas progressivas do Pokémon misterioso");
+const quizPin = document.createElement("button");
+quizPin.type = "button";
+quizPin.className = "quiz-dica";
+quizPin.textContent = "Marcar para estudar";
+quizPin.setAttribute("aria-label", "Marcar esta espécie para uma revisão manual");
+quizPin.setAttribute("aria-pressed", "false");
 const quizSkip = document.createElement("button");
 quizSkip.type = "button";
 quizSkip.className = "quiz-pular";
@@ -987,7 +1016,7 @@ quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizDueNowPractice, quizDueMistakesPractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizPin, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -1561,6 +1590,7 @@ function updateQuizTrainingSummary() {
     quizTrainingSummary.textContent =
         "Treino adaptativo: " + unresolved.length + " Pokémon para revisar" +
         " · " + practiced + "/" + quizCards.length + " fora da lista de erros." +
+        " Marcados para estudar: " + quizPinnedNumbers.size + "." +
         (weak.length ? " Tipos prioritários: " + weak.map(item =>
             item.type + " (" + item.accuracy + "% de acertos em " +
             item.attempts + " perguntas)").join(", ") + "." :
@@ -1577,6 +1607,11 @@ function showQuizQuestion() {
     quizFeedback.textContent = "";
     quizHint.disabled = false;
     quizHint.hidden = false;
+    quizPin.hidden = false;
+    quizPin.disabled = false;
+    const marked = quizPinnedNumbers.has(quizQuestions[quizIndex].number);
+    quizPin.setAttribute("aria-pressed", String(marked));
+    quizPin.textContent = marked ? "Remover marcação de estudo" : "Marcar para estudar";
     quizNext.hidden = true;
     quizSkip.hidden = false;
     quizSkip.disabled = false;
@@ -1647,6 +1682,7 @@ function showQuizQuestion() {
             quizSkip.disabled = true;
             quizHint.disabled = true;
             quizHint.hidden = true;
+            quizPin.disabled = true;
             const correct = choice.number === current.number;
             recordQuizTypeResult(current, correct);
             if (correct) {
@@ -1714,6 +1750,22 @@ quizSkip.addEventListener("click", () => {
     quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
     quizNext.hidden = false;
     quizNext.focus();
+});
+quizPin.addEventListener("click", () => {
+    if (quizAnswered || quizIndex >= quizQuestions.length) return;
+    const current = quizQuestions[quizIndex];
+    if (!current) return;
+    if (quizPinnedNumbers.has(current.number))
+        quizPinnedNumbers.delete(current.number);
+    else quizPinnedNumbers.add(current.number);
+    saveQuizPinned();
+    const marked = quizPinnedNumbers.has(current.number);
+    quizPin.setAttribute("aria-pressed", String(marked));
+    quizPin.textContent = marked ? "Remover marcação de estudo" : "Marcar para estudar";
+    quizFeedback.textContent = marked
+        ? "Espécie marcada para estudo. Pontuação preservada."
+        : "Marcação removida. Pontuação preservada.";
+    updateQuizTrainingSummary();
 });
 quizHint.addEventListener("click", () => {
     if (quizAnswered || quizIndex >= quizQuestions.length || quizHint.disabled) return;
@@ -1827,6 +1879,11 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         : "Somente tipo selecionado (escolha um filtro)";
     if (typeOption.disabled && quizCollection.value === "tipo") quizCollection.value = "todos";
     const mistakesPool = quizCards.filter(card => quizPracticeNumbers.has(card.number));
+    const pinnedOption = quizCollection.querySelector('option[value="marcados"]');
+    pinnedOption.disabled = quizPinnedNumbers.size === 0;
+    pinnedOption.textContent = "Marcados para estudar (" + quizPinnedNumbers.size + ")";
+    if (pinnedOption.disabled && quizCollection.value === "marcados")
+        quizCollection.value = "todos";
     const mistakesOption = quizCollection.querySelector('option[value="erros"]');
     mistakesOption.disabled = mistakesPool.length === 0;
     mistakesOption.textContent = "Praticar erros salvos (" + mistakesPool.length + ")";
@@ -1846,9 +1903,12 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         : quizCollection.value === "pendentes"
             ? quizCards.filter(card => !capturados.has(card.number))
         : quizCollection.value === "tipo" ? typePool
-        : quizCollection.value === "erros" ? mistakesPool : quizCards;
+        : quizCollection.value === "erros" ? mistakesPool
+        : quizCollection.value === "marcados"
+            ? quizCards.filter(card => quizPinnedNumbers.has(card.number)) : quizCards;
     const reviewPool = review ? (replayAll ? [...quizQuestions] : [...quizMissed]) : [];
-    quizIsReview = dueOnly || (review && reviewPool.length > 0);
+    quizIsReview = dueOnly || activeQuizCollection === "marcados" ||
+        (review && reviewPool.length > 0);
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
@@ -1859,7 +1919,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     // entire session into review mode. Correct answers remove them from the
     // persisted practice set, so future sessions adapt automatically.
     const selectedQuestions = (() => {
-        if (quizIsReview && !dueOnly) return reviewPool;
+        if (review && quizIsReview && !dueOnly) return reviewPool;
         // Variety mode starts with species outside the last recorded round.
         // When the collection is small, it safely fills from recent species
         // rather than leaving the player with an empty quiz.
@@ -1977,6 +2037,7 @@ function finishQuiz() {
     quizProgress.value = quizRoundSize;
     quizImage.hidden = true;
     quizHint.hidden = true;
+    quizPin.hidden = true;
     quizSkip.hidden = true;
     quizOptions.replaceChildren();
     quizScore.textContent = (quizIsReview ? "Revisão: " : "Resultado: ") + quizCorrect + "/" + quizRoundSize +
