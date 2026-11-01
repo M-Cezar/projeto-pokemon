@@ -956,6 +956,13 @@ quizBacklogTriage.setAttribute("aria-label",
     "Copiar contagens de revisões por atraso e intervalo de estudo");
 
 // Start a focused overdue practice round without altering due dates.
+const quizDueNowPractice = document.createElement("button");
+quizDueNowPractice.type = "button";
+quizDueNowPractice.className = "quiz-revisao";
+quizDueNowPractice.textContent = "Revisar vencimentos de hoje (sem alterar recordes)";
+quizDueNowPractice.setAttribute("aria-label",
+    "Iniciar prática de revisões vencidas, preservando recordes do quiz");
+
 const quizOverduePractice = document.createElement("button");
 quizOverduePractice.type = "button";
 quizOverduePractice.className = "quiz-revisao";
@@ -971,7 +978,7 @@ quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizDueNowPractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
@@ -1317,6 +1324,19 @@ quizReviewTypePlan.addEventListener("click", async () => {
 });
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryMode.addEventListener("change", renderQuizSessions);
+quizDueNowPractice.addEventListener("click", () => {
+    const due = dueReviewCards().length;
+    if (!due) {
+        quizHistoryImportStatus.textContent = "Não há revisões vencidas agora.";
+        return;
+    }
+    quizLength.value = due <= 5 ? "5" : "10";
+    const started = launchQuizRound(true, null, true);
+    quizHistoryImportStatus.textContent = started
+        ? "Prática iniciada com revisões vencidas. Recordes preservados."
+        : "Não foi possível iniciar a revisão agora.";
+});
+
 quizOverduePractice.addEventListener("click", () => {
     const cutoff = Date.now() - 7 * QUIZ_DAY_MS;
     const known = new Set(quizCards.map(card => card.number));
@@ -2593,7 +2613,10 @@ quizWeeklyCopyPlan.addEventListener("click", async () => {
     for (const entry of quizSpacedReviews.values()) {
         if (!entry || !Number.isFinite(entry.dueAt)) continue;
         if (entry.dueAt <= now) {
-            // Overdue work has its own total; it is not a future review\n            // scheduled for today and must not be counted twice.\n            overdue++;\n        } else {
+            // Overdue work has its own total; it is not a future review
+            // scheduled for today and must not be counted twice.
+            overdue++;
+        } else {
             const dueDate = new Date(entry.dueAt);
             dueDate.setHours(0, 0, 0, 0);
             // Calendar-day difference remains correct across DST transitions.
