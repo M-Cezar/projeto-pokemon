@@ -963,6 +963,13 @@ quizDueNowPractice.textContent = "Revisar vencimentos de hoje (sem alterar recor
 quizDueNowPractice.setAttribute("aria-label",
     "Iniciar prática de revisões vencidas, preservando recordes do quiz");
 
+const quizDueMistakesPractice = document.createElement("button");
+quizDueMistakesPractice.type = "button";
+quizDueMistakesPractice.className = "quiz-revisao";
+quizDueMistakesPractice.textContent = "Treinar erros com revisão vencida";
+quizDueMistakesPractice.setAttribute("aria-label",
+    "Praticar apenas erros salvos com revisão vencida, sem alterar recordes");
+
 const quizOverduePractice = document.createElement("button");
 quizOverduePractice.type = "button";
 quizOverduePractice.className = "quiz-revisao";
@@ -978,7 +985,7 @@ quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizDueNowPractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizDueNowPractice, quizDueMistakesPractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
@@ -1335,6 +1342,21 @@ quizDueNowPractice.addEventListener("click", () => {
     quizHistoryImportStatus.textContent = started
         ? "Prática iniciada com revisões vencidas. Recordes preservados."
         : "Não foi possível iniciar a revisão agora.";
+});
+
+quizDueMistakesPractice.addEventListener("click", () => {
+    const due = dueReviewCards().filter(card =>
+        quizPracticeNumbers.has(card.number)).length;
+    if (!due) {
+        quizHistoryImportStatus.textContent =
+            "Nenhum erro salvo tem revisão vencida no momento.";
+        return;
+    }
+    quizLength.value = due <= 5 ? "5" : "10";
+    const started = launchQuizRound(true, null, true, 0, true);
+    quizHistoryImportStatus.textContent = started
+        ? "Treino de erros vencidos iniciado. Recordes preservados."
+        : "Não foi possível iniciar a revisão dos erros.";
 });
 
 quizOverduePractice.addEventListener("click", () => {
@@ -1825,7 +1847,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         : quizCollection.value === "tipo" ? typePool
         : quizCollection.value === "erros" ? mistakesPool : quizCards;
     const reviewPool = review ? (replayAll ? [...quizQuestions] : [...quizMissed]) : [];
-    quizIsReview = review && reviewPool.length > 0;
+    quizIsReview = dueOnly || (review && reviewPool.length > 0);
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
@@ -1836,7 +1858,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     // entire session into review mode. Correct answers remove them from the
     // persisted practice set, so future sessions adapt automatically.
     const selectedQuestions = (() => {
-        if (quizIsReview) return reviewPool;
+        if (quizIsReview && !dueOnly) return reviewPool;
         // Variety mode starts with species outside the last recorded round.
         // When the collection is small, it safely fills from recent species
         // rather than leaving the player with an empty quiz.
