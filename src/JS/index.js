@@ -1851,7 +1851,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1896,7 +1896,8 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     const overduePool = dueOnly ? dueReviewCards().filter(card =>
         (quizSpacedReviews.get(card.number)?.dueAt ?? Infinity) <=
         Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS &&
-        (!dueMistakesOnly || quizPracticeNumbers.has(card.number))) : [];
+        (!dueMistakesOnly || quizPracticeNumbers.has(card.number)) &&
+        (!pinnedDueOnly || quizPinnedNumbers.has(card.number))) : [];
     const pool = dueOnly ? (focusType ? overduePool.filter(card =>
         card.types.includes(focusType)) : overduePool) : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
@@ -2200,6 +2201,35 @@ quizDueTypeFocus.addEventListener("click", () => {
             " (" + target.count + " vencida(s)).";
     }
 });
+// A short playable session of bookmarked species whose spaced review is due.
+// The original competitive records remain unchanged by review-mode sessions.
+const quizPinnedDueButton=document.createElement("button");
+quizPinnedDueButton.type="button";
+quizPinnedDueButton.className=quizDueButton.className;
+quizPinnedDueButton.textContent="Revisar marcados vencidos";
+quizPinnedDueButton.setAttribute("aria-label",
+    "Iniciar treino de até cinco espécies marcadas com revisão vencida");
+quizDueTypeFocus.insertAdjacentElement("afterend",quizPinnedDueButton);
+quizPinnedDueButton.addEventListener("click",()=>{
+    const now=Date.now();
+    const pending=dueReviewCards().filter(card=>
+        quizPinnedNumbers.has(card.number) &&
+        (quizSpacedReviews.get(card.number)?.dueAt ?? Infinity)<=now);
+    if(!pending.length){
+        quizHistoryImportStatus.textContent=
+            "Nenhuma espécie marcada possui revisão vencida.";
+        return;
+    }
+    if(launchQuizRound(false,null,true,0,false,5,false,false,false,true)){
+        quizHistoryImportStatus.textContent=
+            "Treino de marcados vencidos iniciado ("+Math.min(5,pending.length)+
+            " pergunta(s)). Recordes competitivos preservados.";
+    }else{
+        quizHistoryImportStatus.textContent=
+            "Não foi possível iniciar a revisão dos marcados.";
+    }
+});
+
 // Local study backlog: counts only, no captured identities or remote requests.
 const quizBacklogSummaryButton = document.createElement("button");
 quizBacklogSummaryButton.type = "button";
