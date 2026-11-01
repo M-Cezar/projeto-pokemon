@@ -1374,9 +1374,10 @@ quizOverduePractice.addEventListener("click", () => {
         return;
     }
     quizLength.value = overdue <= 5 ? "5" : "10";
-    launchQuizRound(false, null, true, 7);
-    quizHistoryImportStatus.textContent =
-        "Treino iniciado com revisões atrasadas há sete dias ou mais.";
+    const started = launchQuizRound(true, null, true, 7);
+    quizHistoryImportStatus.textContent = started
+        ? "Treino de revisões atrasadas iniciado. Recordes competitivos preservados."
+        : "Não foi possível iniciar as revisões atrasadas.";
 });
 
 quizDailySprint.addEventListener("click", () => {
