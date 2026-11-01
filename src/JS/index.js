@@ -3017,6 +3017,35 @@ quizSevenDayRecovery.addEventListener("click",()=>{
             "priorizando erros salvos.":"priorizando prazos mais antigos."):
         "Não foi possível iniciar a recuperação das revisões.";
 });
+// Mixed playable recovery: half the slots favor saved mistakes while the
+// remainder covers oldest overdue cards, interleaving Pokémon types.
+// This remains review mode and never updates competitive records.
+const quizBalancedCatchup=document.createElement("button");
+quizBalancedCatchup.type="button";
+quizBalancedCatchup.className=quizSevenDayRecovery.className;
+quizBalancedCatchup.textContent="Treino misto de revisões vencidas";
+quizBalancedCatchup.setAttribute("aria-label",
+    "Treinar até dez revisões vencidas com equilíbrio entre erros e tipos");
+quizSevenDayRecovery.insertAdjacentElement("afterend",quizBalancedCatchup);
+quizBalancedCatchup.addEventListener("click",()=>{
+    const due=dueReviewCards().filter(card=>{
+        const entry=quizSpacedReviews.get(card.number);
+        return Number.isFinite(entry?.dueAt)&&entry.dueAt>=0;
+    });
+    if(due.length<4){
+        quizHistoryImportStatus.textContent=
+            "São necessárias ao menos quatro revisões vencidas para este treino.";
+        return;
+    }
+    const errors=due.filter(card=>quizPracticeNumbers.has(card.number)).length;
+    const started=launchQuizRound(true,null,true,0,false,10,
+        true,false,false,false,false);
+    quizHistoryImportStatus.textContent=started?
+        "Treino misto iniciado: "+Math.min(10,due.length)+
+        " revisão(ões), "+errors+" erro(s) salvo(s) na fila. "+
+        "Tipos alternados e recordes preservados.":
+        "Não foi possível iniciar o treino misto.";
+});
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
