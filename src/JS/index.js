@@ -1331,7 +1331,7 @@ quizOverduePractice.addEventListener("click", () => {
             "Nenhuma revisão vencida há sete dias ou mais.";
         return;
     }
-    quizLength.value = String(Math.min(10, Math.max(4, overdue)));
+    quizLength.value = overdue <= 5 ? "5" : "10";
     startQuiz(false, null, true, 7);
     quizHistoryImportStatus.textContent =
         "Treino iniciado com revisões atrasadas há sete dias ou mais.";
