@@ -1728,7 +1728,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1789,6 +1789,16 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     // persisted practice set, so future sessions adapt automatically.
     const selectedQuestions = (() => {
         if (quizIsReview) return reviewPool;
+        // Variety mode starts with species outside the last recorded round.
+        // When the collection is small, it safely fills from recent species
+        // rather than leaving the player with an empty quiz.
+        if (avoidRecent && !dueOnly) {
+            const fresh = shuffleQuiz(pool.filter(card =>
+                !recentQuizNumbers.has(card.number)));
+            const recent = shuffleQuiz(pool.filter(card =>
+                recentQuizNumbers.has(card.number)));
+            return [...fresh, ...recent].slice(0, requested);
+        }
         // Due-only sessions review the oldest deadlines first, not a random
         // sample that could repeatedly postpone the most overdue cards.
         if (dueOnly) {
@@ -1967,6 +1977,21 @@ quizDueButton.addEventListener("click", () => {
     startQuiz(false, null, true);
     quizDialog.showModal();
 });
+// A separate player-triggered variety round. No score or collection changes
+// occur until the player answers the normal quiz questions.
+const quizVarietyButton = document.createElement("button");
+quizVarietyButton.type = "button";
+quizVarietyButton.className = quizDueButton.className;
+quizVarietyButton.textContent = "Treinar espécies pouco recentes";
+quizVarietyButton.setAttribute("aria-label",
+    "Iniciar treino priorizando Pokémon ausentes da última rodada");
+quizDueButton.insertAdjacentElement("afterend", quizVarietyButton);
+quizVarietyButton.addEventListener("click", () => {
+    if (quizCards.length < 4) return;
+    startQuiz(false, null, false, 0, false, null, false, false, true);
+    quizDialog.showModal();
+});
+
 // Start a focused overdue session for the type with the largest pending
 // workload. Existing deadlines and progress remain unchanged until answers.
 const quizDueTypeFocus = document.createElement("button");
