@@ -2071,6 +2071,35 @@ quizVarietyButton.addEventListener("click", () => {
     quizDialog.showModal();
 });
 
+// Short player-triggered sprint on the weakest measured type.
+// Saved mistakes receive priority through the existing focused selector;
+// scores and spaced-review dates change only when answers are submitted.
+const quizWeaknessSprint = document.createElement("button");
+quizWeaknessSprint.type = "button";
+quizWeaknessSprint.className = quizDueButton.className;
+quizWeaknessSprint.textContent = "Treino rápido do tipo mais difícil (5)";
+quizWeaknessSprint.setAttribute("aria-label",
+    "Jogar até cinco perguntas do tipo com menor desempenho histórico");
+quizVarietyButton.insertAdjacentElement("afterend", quizWeaknessSprint);
+quizWeaknessSprint.addEventListener("click", () => {
+    const weakest = weakestQuizTrainingType();
+    if (!weakest) {
+        quizHistoryImportStatus.textContent =
+            "Responda algumas rodadas para identificar um tipo prioritário.";
+        return;
+    }
+    const available = quizCards.filter(card => card.types.includes(weakest));
+    if (available.length < 4) {
+        quizHistoryImportStatus.textContent =
+            "Não há espécies suficientes desse tipo para iniciar o treino.";
+        return;
+    }
+    if (launchQuizRound(false, weakest, false, 0, false, 5)) {
+        quizHistoryImportStatus.textContent =
+            "Treino focado em " + weakest + " iniciado. Até cinco perguntas.";
+    }
+});
+
 // Start a focused overdue session for the type with the largest pending
 // workload. Existing deadlines and progress remain unchanged until answers.
 const quizDueTypeFocus = document.createElement("button");
