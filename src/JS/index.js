@@ -693,7 +693,7 @@ quizFeedback.setAttribute("role", "status");
 quizFeedback.setAttribute("aria-live", "polite");
 const quizKeyboardHelp = document.createElement("p");
 quizKeyboardHelp.className = "quiz-atalhos";
-quizKeyboardHelp.textContent = "Atalhos: 1 a 6 responder · setas navegar · Home/End primeira ou última · H dica · S pular · N avançar · P pausar.";
+quizKeyboardHelp.textContent = "Atalhos: 1 a 6 responder · setas navegar · Home/End primeira ou última · H dica · S pular · N avançar · P pausar · R repetir rodada · M revisar erros (ao concluir).";
 const quizHint = document.createElement("button");
 quizHint.type = "button";
 quizHint.className = "quiz-dica";
@@ -2361,7 +2361,7 @@ quizReviewCalendarIcs.addEventListener("click", () => {
 });
 // Keyboard-accessible play. Expert difficulty exposes six answers.
 // Arrow/Home/End move focus only among active answers; they never submit.
-quizDialog.setAttribute("aria-keyshortcuts", "1 2 3 4 5 6 ArrowUp ArrowDown ArrowLeft ArrowRight Home End H S N P");
+quizDialog.setAttribute("aria-keyshortcuts", "1 2 3 4 5 6 ArrowUp ArrowDown ArrowLeft ArrowRight Home End H S N P R M");
 quizDialog.addEventListener("keydown", event => {
     if (!quizDialog.open || event.repeat || event.ctrlKey ||
         event.metaKey || event.altKey || event.isComposing) return;
@@ -2374,6 +2374,18 @@ quizDialog.addEventListener("keydown", event => {
         button => !button.disabled && !button.hidden);
     // Pause without resetting the active round, points, hint state or queue.
     // The existing resume button becomes available on dialog close.
+    if (quizIndex === quizRoundSize && key === "r" && !quizReplay.hidden &&
+        !quizReplay.disabled) {
+        event.preventDefault();
+        quizReplay.click();
+        return;
+    }
+    if (quizIndex === quizRoundSize && key === "m" && !quizReview.hidden &&
+        !quizReview.disabled) {
+        event.preventDefault();
+        quizReview.click();
+        return;
+    }
     if (key === "p" && quizIndex < quizRoundSize) {
         event.preventDefault();
         quizDialog.close();
