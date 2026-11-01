@@ -465,7 +465,7 @@ quizQuickReviewButton.setAttribute("aria-label",
     "Treinar até cinco revisões vencidas, começando pelas mais antigas");
 quizDueButton.insertAdjacentElement("afterend", quizQuickReviewButton);
 quizQuickReviewButton.addEventListener("click", () =>
-    startQuiz(false, null, true, 0, false, 5));
+    launchQuizRound(false, null, true, 0, false, 5));
 const quizBalancedDueButton = document.createElement("button");
 quizBalancedDueButton.type = "button";
 quizBalancedDueButton.className = "abrir-quiz";
@@ -474,14 +474,14 @@ quizBalancedDueButton.setAttribute("aria-label",
     "Misturar revisões vencidas com erros anteriores e outras espécies");
 quizQuickReviewButton.insertAdjacentElement("afterend", quizBalancedDueButton);
 quizBalancedDueButton.addEventListener("click", () =>
-    startQuiz(false, null, true, 0, false, 10, true));
+    launchQuizRound(false, null, true, 0, false, 10, true));
 const quizUrgentReviewButton = document.createElement("button");
 quizUrgentReviewButton.type = "button";
 quizUrgentReviewButton.className = "abrir-quiz";
 quizUrgentReviewButton.textContent = "Revisar atrasos de 7+ dias";
 quizDueButton.insertAdjacentElement("afterend", quizUrgentReviewButton);
 quizUrgentReviewButton.addEventListener("click", () =>
-    startQuiz(false, null, true, 7));
+    launchQuizRound(false, null, true, 7));
 // Practice only cards that are both overdue and still in the mistake queue.
 // This uses the existing spaced-review engine without changing due dates.
 const quizDueMistakesButton = document.createElement("button");
@@ -490,7 +490,7 @@ quizDueMistakesButton.className = "abrir-quiz";
 quizDueMistakesButton.textContent = "Revisar erros vencidos";
 quizUrgentReviewButton.insertAdjacentElement("afterend", quizDueMistakesButton);
 quizDueMistakesButton.addEventListener("click", () =>
-    startQuiz(false, null, true, 0, true));
+    launchQuizRound(false, null, true, 0, true));
 const quizPracticeQueue = document.createElement("button");
 quizPracticeQueue.type = "button";
 quizPracticeQueue.className = "abrir-quiz";
@@ -512,7 +512,7 @@ quizDueTypeButton.addEventListener("click", () => {
     }
     const chosen = [...counts].sort((a, b) =>
         b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"))[0];
-    if (chosen) startQuiz(false, chosen[0], true);
+    if (chosen) launchQuizRound(false, chosen[0], true);
 });
 // A playable training entry point based on actual historical mistakes.
 // Require a meaningful sample so one accidental error cannot dominate.
@@ -544,7 +544,7 @@ quizWeakTypeButton.addEventListener("click", () => {
     quizNextReviewStatus.textContent =
         "Treino direcionado: " + ranked[0].type + " (" +
         Math.round(ranked[0].missRate * 100) + "% de erros históricos).";
-    startQuiz(false, ranked[0].type);
+    launchQuizRound(false, ranked[0].type);
 });
 const quizNextReviewStatus = document.createElement("p");
 quizNextReviewStatus.setAttribute("role", "status");
@@ -1332,7 +1332,7 @@ quizOverduePractice.addEventListener("click", () => {
         return;
     }
     quizLength.value = overdue <= 5 ? "5" : "10";
-    startQuiz(false, null, true, 7);
+    launchQuizRound(false, null, true, 7);
     quizHistoryImportStatus.textContent =
         "Treino iniciado com revisões atrasadas há sete dias ou mais.";
 });
@@ -1347,7 +1347,7 @@ quizDailySprint.addEventListener("click", () => {
     if (recommendation) quizDifficulty.value = recommendation.difficulty;
     const overdue = dueReviewCards().length;
     const weakType = overdue ? null : weakestQuizTrainingType();
-    startQuiz(false, weakType, overdue > 0);
+    launchQuizRound(false, weakType, overdue > 0);
     quizHistoryImportStatus.textContent = overdue
         ? "Treino rápido: revisões vencidas priorizadas."
         : weakType
@@ -1361,7 +1361,7 @@ quizWeakestTypePractice.addEventListener("click", () => {
             "Jogue pelo menos três perguntas de um tipo para identificar a prioridade.";
         return;
     }
-    startQuiz(false, type);
+    launchQuizRound(false, type);
     quizHistoryImportStatus.textContent =
         "Treino direcionado iniciado: " + type + ".";
 });
@@ -1369,7 +1369,7 @@ quizHistoryPractice.addEventListener("click", () => {
     const recommendation = recommendedQuizDifficulty();
     if (!recommendation) return;
     quizDifficulty.value = recommendation.difficulty;
-    startQuiz();
+    launchQuizRound();
     quizHistoryImportStatus.textContent =
         "Treino iniciado na dificuldade " + recommendation.difficulty + ".";
 });
@@ -1897,6 +1897,15 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizSkipped = 0;
     updateQuizTrainingSummary();
     showQuizQuestion();
+}
+// Dashboard shortcuts must actually open the playable round. Starting a
+// question queue without showing the dialog left the controls inaccessible.
+function launchQuizRound(...args) {
+    if (quizCards.length < 4) return false;
+    startQuiz(...args);
+    if (!quizQuestions.length) return false;
+    if (!quizDialog.open) quizDialog.showModal();
+    return true;
 }
 function finishQuiz() {
     quizPause.hidden = true;
