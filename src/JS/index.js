@@ -2369,7 +2369,8 @@ quizDialog.addEventListener("keydown", event => {
     if (target instanceof HTMLElement &&
         (target.isContentEditable || target.closest("input,select,textarea"))) return;
     const key = event.key.toLowerCase();
-    const options = [...quizOptions.querySelectorAll("button")].filter(
+    const numberedOptions = [...quizOptions.querySelectorAll("button")];
+    const options = numberedOptions.filter(
         button => !button.disabled && !button.hidden);
     // Pause without resetting the active round, points, hint state or queue.
     // The existing resume button becomes available on dialog close.
@@ -2379,8 +2380,9 @@ quizDialog.addEventListener("keydown", event => {
         return;
     }
     if (/^[1-6]$/.test(key) && !quizAnswered) {
-        const choice = options[Number(key) - 1];
-        if (choice) {
+        // Keep the original visible answer number after a hint hides one.
+        const choice = numberedOptions[Number(key) - 1];
+        if (choice && !choice.disabled && !choice.hidden) {
             event.preventDefault();
             choice.click();
         }
