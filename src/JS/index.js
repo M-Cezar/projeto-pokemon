@@ -1851,7 +1851,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1939,6 +1939,17 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
                 (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
                 a.number.localeCompare(b.number);
             const ordered = [...pool].sort(oldestFirst);
+            // Explicit priority sprint: pinned overdue cards first, then
+            // saved mistakes, then the oldest remaining deadlines. No record
+            // or capture status is changed by this review-mode selection.
+            if (priorityDue) {
+                return ordered.sort((a, b) =>
+                    Number(quizPinnedNumbers.has(b.number)) -
+                        Number(quizPinnedNumbers.has(a.number)) ||
+                    Number(quizPracticeNumbers.has(b.number)) -
+                        Number(quizPracticeNumbers.has(a.number)) ||
+                    oldestFirst(a, b)).slice(0, requested);
+            }
             if (!balancedDue) return ordered.slice(0, requested);
             // Reserve at most half the sprint for saved mistakes, then add
             // the oldest other cards. Fill any spare places without repeats.
@@ -2227,6 +2238,31 @@ quizPinnedDueButton.addEventListener("click",()=>{
     }else{
         quizHistoryImportStatus.textContent=
             "Não foi possível iniciar a revisão dos marcados.";
+    }
+});
+
+// Short playable review that gives precedence to marked species and saved
+// mistakes without delaying ordinary overdue work beyond the five-card sprint.
+const quizPriorityDueButton=document.createElement("button");
+quizPriorityDueButton.type="button";
+quizPriorityDueButton.className=quizDueButton.className;
+quizPriorityDueButton.textContent="Treino prioritário (marcados e erros)";
+quizPriorityDueButton.setAttribute("aria-label",
+    "Treinar até cinco revisões vencidas priorizando marcados e erros salvos");
+quizPinnedDueButton.insertAdjacentElement("afterend",quizPriorityDueButton);
+quizPriorityDueButton.addEventListener("click",()=>{
+    const due=dueReviewCards();
+    if(!due.length){
+        quizHistoryImportStatus.textContent="Nenhuma revisão vencida disponível.";
+        return;
+    }
+    if(launchQuizRound(false,null,true,0,false,5,false,false,false,false,true)){
+        quizHistoryImportStatus.textContent=
+            "Treino prioritário iniciado. Marcados e erros salvos primeiro; "+
+            "recordes competitivos preservados.";
+    }else{
+        quizHistoryImportStatus.textContent=
+            "Não foi possível abrir o treino prioritário.";
     }
 });
 
