@@ -3046,6 +3046,53 @@ quizBalancedCatchup.addEventListener("click",()=>{
         "Tipos alternados e recordes preservados.":
         "Não foi possível iniciar o treino misto.";
 });
+// Target the overdue type with the largest combination of pending cards,
+// saved mistakes and historical error rate. The player starts the round
+// explicitly and review mode never updates competitive records.
+const quizWeakTypeRecovery=document.createElement("button");
+quizWeakTypeRecovery.type="button";
+quizWeakTypeRecovery.className=quizBalancedCatchup.className;
+quizWeakTypeRecovery.textContent="Revisar tipo com maior dificuldade";
+quizWeakTypeRecovery.setAttribute("aria-label",
+    "Iniciar revisão vencida do tipo Pokémon com maior necessidade de treino");
+quizBalancedCatchup.insertAdjacentElement("afterend",quizWeakTypeRecovery);
+quizWeakTypeRecovery.addEventListener("click",()=>{
+    const groups=new Map();
+    for(const card of dueReviewCards()){
+        const due=quizSpacedReviews.get(card.number)?.dueAt;
+        if(!Number.isFinite(due)||due<0)continue;
+        for(const type of new Set(card.types)){
+            const group=groups.get(type)||{type,cards:0,mistakes:0};
+            group.cards++;
+            if(quizPracticeNumbers.has(card.number))group.mistakes++;
+            groups.set(type,group);
+        }
+    }
+    const ranked=[...groups.values()].filter(group=>group.cards>=4)
+        .map(group=>{
+            const history=quizTypeHistory.get(group.type);
+            const errorRate=history?.asked>0?
+                (history.asked-history.correct)/history.asked:0;
+            return {...group,errorRate,
+                priority:group.cards*2+group.mistakes*3+
+                    Math.round(errorRate*10)};
+        }).sort((a,b)=>b.priority-a.priority||
+            b.cards-a.cards||a.type.localeCompare(b.type,"pt-BR"));
+    const focus=ranked[0];
+    if(!focus){
+        quizHistoryImportStatus.textContent=
+            "Nenhum tipo possui quatro revisões vencidas para este treino.";
+        return;
+    }
+    const started=launchQuizRound(true,focus.type,true,0,false,10,
+        false,false,false,false,true);
+    quizHistoryImportStatus.textContent=started?
+        "Revisão do tipo "+focus.type+" iniciada: "+
+        focus.cards+" pendência(s), "+focus.mistakes+
+        " erro(s) salvo(s). Recordes competitivos preservados.":
+        "Não foi possível iniciar a revisão do tipo "+focus.type+".";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
