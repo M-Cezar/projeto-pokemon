@@ -2984,6 +2984,39 @@ quizMostOverdueTypeSprint.addEventListener("click",()=>{
     else quizHistoryImportStatus.textContent=
         "Não foi possível iniciar o treino deste tipo.";
 });
+// A playable catch-up sprint for reviews overdue by at least seven days.
+// Saved mistakes take priority when enough are available; otherwise the
+// oldest overdue cards fill the round. Review scores never update records.
+const quizSevenDayRecovery=document.createElement("button");
+quizSevenDayRecovery.type="button";
+quizSevenDayRecovery.className=quizMostOverdueTypeSprint.className;
+quizSevenDayRecovery.textContent="Recuperar revisões atrasadas há 7 dias";
+quizSevenDayRecovery.setAttribute("aria-label",
+    "Treinar até dez revisões com sete dias de atraso sem alterar recordes");
+quizMostOverdueTypeSprint.insertAdjacentElement("afterend",quizSevenDayRecovery);
+quizSevenDayRecovery.addEventListener("click",()=>{
+    const threshold=Date.now()-7*QUIZ_DAY_MS;
+    const overdue=dueReviewCards().filter(card=>{
+        const due=quizSpacedReviews.get(card.number)?.dueAt;
+        return Number.isFinite(due)&&due>=0&&due<=threshold;
+    });
+    if(overdue.length<4){
+        quizHistoryImportStatus.textContent=
+            "São necessárias ao menos quatro revisões atrasadas há 7 dias.";
+        return;
+    }
+    const mistakes=overdue.filter(card=>
+        quizPracticeNumbers.has(card.number));
+    const focusMistakes=mistakes.length>=4;
+    const launched=launchQuizRound(true,null,true,7,focusMistakes,10,
+        false,false,false,false,!focusMistakes);
+    quizHistoryImportStatus.textContent=launched?
+        "Recuperação iniciada: "+Math.min(10,
+            focusMistakes?mistakes.length:overdue.length)+
+            " pergunta(s), "+(focusMistakes?
+            "priorizando erros salvos.":"priorizando prazos mais antigos."):
+        "Não foi possível iniciar a recuperação das revisões.";
+});
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
