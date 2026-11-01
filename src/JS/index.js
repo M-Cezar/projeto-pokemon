@@ -681,6 +681,15 @@ quizReview.type = "button";
 quizReview.className = "quiz-revisao";
 quizReview.textContent = "Revisar erros";
 quizReview.hidden = true;
+// Replays the completed question set as an unranked practice round.
+const quizReplay = document.createElement("button");
+quizReplay.type = "button";
+quizReplay.className = "quiz-revisao";
+quizReplay.textContent = "Repetir perguntas desta rodada";
+quizReplay.hidden = true;
+quizReplay.setAttribute("aria-label",
+    "Repetir as mesmas espécies em nova ordem sem alterar recordes");
+
 const quizPause = document.createElement("button");
 quizPause.type = "button";
 quizPause.className = "quiz-fechar";
@@ -924,7 +933,7 @@ quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
     quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
-quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizHistoryDetails, quizPause, quizClose);
+quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
 
 const shuffleQuiz = items => {
@@ -1687,7 +1696,7 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1735,7 +1744,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
             ? quizCards.filter(card => !capturados.has(card.number))
         : quizCollection.value === "tipo" ? typePool
         : quizCollection.value === "erros" ? mistakesPool : quizCards;
-    const reviewPool = review ? [...quizMissed] : [];
+    const reviewPool = review ? (replayAll ? [...quizQuestions] : [...quizMissed]) : [];
     quizIsReview = review && reviewPool.length > 0;
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
@@ -1804,6 +1813,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizMissed = [];
     quizTypeStats = new Map();
     quizReview.hidden = true;
+    quizReplay.hidden = true;
     quizWeakType.hidden = true;
     quizExportMistakes.hidden = true;
     quizStudyPlan.hidden = true;
@@ -1893,6 +1903,7 @@ function finishQuiz() {
     }
     updateQuizTrainingSummary();
     quizReview.hidden = quizMissed.length === 0;
+    quizReplay.hidden = quizRoundSize === 0;
     quizExportMistakes.hidden = quizMissed.length === 0;
     quizStudyPlan.hidden = false;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
@@ -2006,6 +2017,10 @@ quizPracticeQueue.addEventListener("click", () => {
         " Pokémon exportados para revisão, sem alterar o progresso.";
 });
 quizReview.addEventListener("click", () => startQuiz(true));
+quizReplay.addEventListener("click", () => {
+    if (quizIndex !== quizRoundSize || !quizQuestions.length) return;
+    startQuiz(true, null, false, 0, false, null, false, true);
+});
 quizWeakType.addEventListener("click", () => {
     const type = weakestQuizTrainingType();
     if (type) startQuiz(false, type);
