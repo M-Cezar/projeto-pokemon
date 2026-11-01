@@ -2593,9 +2593,7 @@ quizWeeklyCopyPlan.addEventListener("click", async () => {
     for (const entry of quizSpacedReviews.values()) {
         if (!entry || !Number.isFinite(entry.dueAt)) continue;
         if (entry.dueAt <= now) {
-            overdue++;
-            buckets[0].count++;
-        } else {
+            // Overdue work has its own total; it is not a future review\n            // scheduled for today and must not be counted twice.\n            overdue++;\n        } else {
             const dueDate = new Date(entry.dueAt);
             dueDate.setHours(0, 0, 0, 0);
             // Calendar-day difference remains correct across DST transitions.
@@ -2608,7 +2606,7 @@ quizWeeklyCopyPlan.addEventListener("click", async () => {
     }
     const lines = [
         "Plano de revisões Pokémon (próximos 7 dias)",
-        "Revisões já vencidas: " + overdue,
+        "Revisões já vencidas (fora da agenda futura): " + overdue,
         ...buckets.map(item => {
             const date = new Date(startOfToday);
             date.setDate(date.getDate() + item.day);
