@@ -1817,6 +1817,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizWeakType.hidden = true;
     quizExportMistakes.hidden = true;
     quizStudyPlan.hidden = true;
+    quizDebriefCopy.hidden = true;
     quizIndex = 0;
     quizCorrect = 0;
     quizPoints = 0;
@@ -1906,6 +1907,7 @@ function finishQuiz() {
     quizReplay.hidden = quizRoundSize === 0;
     quizExportMistakes.hidden = quizMissed.length === 0;
     quizStudyPlan.hidden = false;
+    quizDebriefCopy.hidden = false;
     quizReview.textContent = "Revisar erros (" + quizMissed.length + ")";
     const weakest = weakestQuizTrainingType();
     quizWeakType.hidden = weakest === null;
@@ -2089,6 +2091,45 @@ quizStudyPlan.addEventListener("click", () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+// Share a completed round's learning summary without changing captures,
+// records, saved reviews or any remote service.
+const quizDebriefCopy = document.createElement("button");
+quizDebriefCopy.type = "button";
+quizDebriefCopy.className = quizExportMistakes.className;
+quizDebriefCopy.textContent = "Copiar resumo de aprendizado";
+quizDebriefCopy.hidden = true;
+quizStudyPlan.insertAdjacentElement("afterend", quizDebriefCopy);
+quizDebriefCopy.addEventListener("click", async () => {
+    if (quizIndex < quizRoundSize || quizRoundSize === 0) return;
+    const weakest = [...quizTypeStats.entries()]
+        .filter(([, stats]) => stats.asked > stats.correct)
+        .sort((a, b) => (b[1].asked - b[1].correct) -
+            (a[1].asked - a[1].correct) || a[0].localeCompare(b[0], "pt-BR"))
+        .slice(0, 5);
+    const errors = [...new Map(quizMissed.filter(card => card && card.number)
+        .map(card => [card.number, card.name])).values()].slice(0, 15);
+    const lines = [
+        "Resumo de aprendizado Pokémon",
+        "Modalidade: " + (quizIsReview ? "revisão" : activeQuizCollection),
+        "Dificuldade: " + activeQuizDifficulty,
+        "Acertos: " + quizCorrect + "/" + quizRoundSize,
+        "Precisão: " + Math.round(100 * quizCorrect / quizRoundSize) + "%",
+        "Pontos: " + quizPoints,
+        "Maior sequência: " + quizBestStreak,
+        "Dicas: " + quizHintsUsed + " | Puladas: " + quizSkipped,
+        "Tipos para reforçar: " + (weakest.length ? weakest.map(([type, stats]) =>
+            type + " (" + (stats.asked - stats.correct) + " erro(s))").join(", ") :
+            "nenhum nesta rodada"),
+        "Espécies para revisar: " + (errors.join(", ") || "nenhuma"),
+        "Resumo local; recordes e capturas preservados."
+    ];
+    try {
+        await navigator.clipboard.writeText(lines.join("\\n"));
+        quizHistoryImportStatus.textContent = "Resumo de aprendizado copiado.";
+    } catch {
+        quizHistoryImportStatus.textContent = "Não foi possível copiar o resumo.";
+    }
 });
 quizExportMistakes.addEventListener("click", () => {
     if (!quizMissed.length || quizIndex < quizQuestions.length) return;
