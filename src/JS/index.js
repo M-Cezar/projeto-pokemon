@@ -2872,6 +2872,63 @@ quizWeeklyCopyPlan.addEventListener("click", async () => {
             "Não foi possível copiar o plano semanal.";
     }
 });
+// Read-only workload by Pokémon type. Dual-type species count in both
+// categories, which is stated in the report instead of hiding overlap.
+const quizTypeWorkloadCopy = document.createElement("button");
+quizTypeWorkloadCopy.type = "button";
+quizTypeWorkloadCopy.className = quizWeeklyCopyPlan.className;
+quizTypeWorkloadCopy.textContent = "Copiar prioridades de revisão por tipo";
+quizTypeWorkloadCopy.setAttribute("aria-label",
+    "Copiar contagens de revisões vencidas, futuras e erros por tipo Pokémon");
+quizWeeklyCopyPlan.insertAdjacentElement("afterend", quizTypeWorkloadCopy);
+quizTypeWorkloadCopy.addEventListener("click", async () => {
+    const now = Date.now();
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const grouped = new Map();
+    for (const card of quizCards) {
+        const review = quizSpacedReviews.get(card.number);
+        const valid = review && Number.isFinite(review.dueAt) &&
+            review.dueAt >= 0;
+        const overdue = valid && review.dueAt <= now;
+        const upcoming = valid && review.dueAt > now &&
+            review.dueAt <= nextWeek.getTime();
+        const mistake = quizPracticeNumbers.has(card.number);
+        const pinned = quizPinnedNumbers.has(card.number);
+        if (!overdue && !upcoming && !mistake && !pinned) continue;
+        for (const type of new Set(card.types)) {
+            const item = grouped.get(type) ||
+                {type, overdue: 0, upcoming: 0, mistakes: 0, pinned: 0};
+            if (overdue) item.overdue++;
+            if (upcoming) item.upcoming++;
+            if (mistake) item.mistakes++;
+            if (pinned) item.pinned++;
+            grouped.set(type, item);
+        }
+    }
+    const ordered = [...grouped.values()].sort((a, b) =>
+        b.overdue - a.overdue || b.mistakes - a.mistakes ||
+        b.pinned - a.pinned || a.type.localeCompare(b.type, "pt-BR"));
+    const lines = [
+        "Prioridades locais de revisão por tipo Pokémon",
+        "Gerado: " + new Date(now).toLocaleString("pt-BR"),
+        "Tipos com estudo pendente: " + ordered.length,
+        ...ordered.map(item => item.type + ": " +
+            item.overdue + " vencida(s), " + item.upcoming +
+            " nos próximos 7 dias, " + item.mistakes +
+            " erro(s), " + item.pinned + " marcada(s)"),
+        "Pokémon de dois tipos aparecem em ambos os grupos.",
+        "Relatório consultivo; recordes e vencimentos não foram alterados."
+    ];
+    try {
+        await navigator.clipboard.writeText(lines.join("\\n"));
+        quizHistoryImportStatus.textContent =
+            "Prioridades por tipo copiadas.";
+    } catch {
+        quizHistoryImportStatus.textContent =
+            "Não foi possível copiar as prioridades por tipo.";
+    }
+});
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
