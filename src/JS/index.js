@@ -955,6 +955,14 @@ quizBacklogTriage.textContent = "Copiar diagnóstico de revisões atrasadas";
 quizBacklogTriage.setAttribute("aria-label",
     "Copiar contagens de revisões por atraso e intervalo de estudo");
 
+// Start a focused overdue practice round without altering due dates.
+const quizOverduePractice = document.createElement("button");
+quizOverduePractice.type = "button";
+quizOverduePractice.className = "quiz-revisao";
+quizOverduePractice.textContent = "Treinar revisões atrasadas 7+ dias";
+quizOverduePractice.setAttribute("aria-label",
+    "Iniciar treino com revisões vencidas há pelo menos sete dias");
+
 const quizPriorityExport = document.createElement("button");
 quizPriorityExport.type = "button";
 quizPriorityExport.className = "quiz-revisao";
@@ -963,7 +971,7 @@ quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
@@ -1309,6 +1317,26 @@ quizReviewTypePlan.addEventListener("click", async () => {
 });
 quizHistoryFilter.addEventListener("change", renderQuizSessions);
 quizHistoryMode.addEventListener("change", renderQuizSessions);
+quizOverduePractice.addEventListener("click", () => {
+    const cutoff = Date.now() - 7 * QUIZ_DAY_MS;
+    const known = new Set(quizCards.map(card => card.number));
+    const overdue = [...quizSpacedReviews].filter(([number, review]) =>
+        known.has(number) && review &&
+        Number.isSafeInteger(review.dueAt) && review.dueAt > 0 &&
+        review.dueAt <= cutoff &&
+        Number.isSafeInteger(review.step) && review.step >= 0 &&
+        review.step <= 2).length;
+    if (!overdue) {
+        quizHistoryImportStatus.textContent =
+            "Nenhuma revisão vencida há sete dias ou mais.";
+        return;
+    }
+    quizLength.value = String(Math.min(10, Math.max(4, overdue)));
+    startQuiz(false, null, true, 7);
+    quizHistoryImportStatus.textContent =
+        "Treino iniciado com revisões atrasadas há sete dias ou mais.";
+});
+
 quizDailySprint.addEventListener("click", () => {
     if (quizCards.length < 4) {
         quizHistoryImportStatus.textContent = "São necessários quatro Pokémon para treinar.";
