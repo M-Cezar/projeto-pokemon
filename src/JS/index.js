@@ -409,8 +409,12 @@ function recordSpacedReview(pokemon, correct) {
     if (!previous && correct) return;
     const step = correct ? Math.min(2, previous.step + 1) : 0;
     const interval = [1, 3, 7][step];
+    // Keep the intended local calendar day across daylight-saving changes.
+    // A day of study is not always exactly 24 hours in local time.
+    const due = new Date();
+    due.setDate(due.getDate() + interval);
     quizSpacedReviews.set(pokemon.number, {
-        step, dueAt: Date.now() + interval * QUIZ_DAY_MS
+        step, dueAt: due.getTime()
     });
     saveSpacedReviews();
     updateDueReviewButton();
@@ -586,6 +590,12 @@ function updateDueReviewButton() {
     }
 }
 updateDueReviewButton();
+// The review queue can cross a calendar boundary while the tab is inactive.
+// Recompute visible counters when the player returns without changing any due date.
+window.addEventListener("focus", () => updateDueReviewButton());
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) updateDueReviewButton();
+});
 
 const quizDialog = document.createElement("dialog");
 quizDialog.className = "pokemon-quiz";
