@@ -2125,7 +2125,7 @@ quizDebriefCopy.addEventListener("click", async () => {
         "Resumo local; recordes e capturas preservados."
     ];
     try {
-        await navigator.clipboard.writeText(lines.join("\\n"));
+        await navigator.clipboard.writeText(lines.join("\n"));
         quizHistoryImportStatus.textContent = "Resumo de aprendizado copiado.";
     } catch {
         quizHistoryImportStatus.textContent = "Não foi possível copiar o resumo.";
