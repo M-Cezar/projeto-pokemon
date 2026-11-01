@@ -2929,6 +2929,37 @@ quizTypeWorkloadCopy.addEventListener("click", async () => {
             "Não foi possível copiar as prioridades por tipo.";
     }
 });
+// Play the most urgent type-specific review round without changing records.
+const quizMostOverdueTypeSprint=document.createElement("button");
+quizMostOverdueTypeSprint.type="button";
+quizMostOverdueTypeSprint.className=quizTypeWorkloadCopy.className;
+quizMostOverdueTypeSprint.textContent="Treinar tipo com mais revisões vencidas";
+quizMostOverdueTypeSprint.setAttribute("aria-label",
+    "Iniciar até dez revisões do tipo com maior atraso, preservando recordes");
+quizTypeWorkloadCopy.insertAdjacentElement("afterend",quizMostOverdueTypeSprint);
+quizMostOverdueTypeSprint.addEventListener("click",()=>{
+    const now=Date.now(),counts=new Map();
+    for(const card of quizCards){
+        const due=quizSpacedReviews.get(card.number)?.dueAt;
+        if(!Number.isFinite(due)||due<0||due>now)continue;
+        for(const type of new Set(card.types))
+            counts.set(type,(counts.get(type)||0)+1);
+    }
+    const ranked=[...counts].filter(([,count])=>count>=4)
+        .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],"pt-BR"));
+    if(!ranked.length){
+        quizHistoryImportStatus.textContent=
+            "Não há quatro revisões vencidas do mesmo tipo para iniciar.";
+        return;
+    }
+    const [type,count]=ranked[0];
+    if(launchQuizRound(true,type,true,0,false,10,false,false,false,false,true))
+        quizHistoryImportStatus.textContent=
+            "Treino de "+type+" iniciado com "+Math.min(10,count)+
+            " revisão(ões) prioritárias.";
+    else quizHistoryImportStatus.textContent=
+        "Não foi possível iniciar o treino deste tipo.";
+});
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
