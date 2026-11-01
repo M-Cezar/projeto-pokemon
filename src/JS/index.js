@@ -2139,6 +2139,53 @@ quizDueTypeFocus.addEventListener("click", () => {
             " (" + target.count + " vencida(s)).";
     }
 });
+// Local study backlog: counts only, no captured identities or remote requests.
+const quizBacklogSummaryButton = document.createElement("button");
+quizBacklogSummaryButton.type = "button";
+quizBacklogSummaryButton.className = quizDueButton.className;
+quizBacklogSummaryButton.textContent = "Copiar resumo das revisões por tipo";
+quizBacklogSummaryButton.setAttribute("aria-label",
+    "Copiar totais de revisões vencidas e erros por tipo Pokémon");
+quizDueTypeFocus.insertAdjacentElement("afterend", quizBacklogSummaryButton);
+quizBacklogSummaryButton.addEventListener("click", async () => {
+    const now = Date.now();
+    const groups = new Map();
+    let totalDue = 0, totalMistakes = 0;
+    for (const card of quizCards) {
+        const review = quizSpacedReviews.get(card.number);
+        const due = Number.isSafeInteger(review?.dueAt) &&
+            review.dueAt > 0 && review.dueAt <= now;
+        const mistake = quizPracticeNumbers.has(card.number);
+        if (!due && !mistake) continue;
+        if (due) totalDue++;
+        if (mistake) totalMistakes++;
+        for (const type of new Set(card.types)) {
+            const entry = groups.get(type) || {due: 0, mistakes: 0};
+            if (due) entry.due++;
+            if (mistake) entry.mistakes++;
+            groups.set(type, entry);
+        }
+    }
+    const lines = [
+        "Fila local de revisões Pokémon",
+        "Revisões vencidas: " + totalDue,
+        "Erros salvos: " + totalMistakes,
+        "Um Pokémon de dois tipos pode aparecer em ambos os grupos.",
+        ...[...groups].sort((a, b) =>
+            (b[1].due + b[1].mistakes) - (a[1].due + a[1].mistakes) ||
+            a[0].localeCompare(b[0], "pt-BR")).map(([type, value]) =>
+            type + ": " + value.due + " vencida(s), " +
+            value.mistakes + " erro(s)")
+    ];
+    try {
+        await navigator.clipboard.writeText(lines.join("\n"));
+        quizHistoryImportStatus.textContent = "Resumo de revisões copiado.";
+    } catch {
+        quizHistoryImportStatus.textContent =
+            "Não foi possível copiar o resumo das revisões.";
+    }
+});
+
 quizPracticeQueue.addEventListener("click", () => {
     const now = Date.now();
     const rows = quizCards.map(card => {
