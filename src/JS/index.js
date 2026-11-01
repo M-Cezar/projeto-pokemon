@@ -1851,6 +1851,30 @@ function selectFocusedQuizQuestions(pool, requested) {
     return shuffleQuiz(selected);
 }
 
+// In balanced overdue practice, avoid a single Pokémon type monopolizing
+// the round. Preserve oldest-first order within each type and never duplicate.
+function interleaveBalancedReviewTypes(selected,oldestFirst){
+    const buckets=new Map();
+    for(const card of [...selected].sort(oldestFirst)){
+        const type=card.types?.[0]||"desconhecido";
+        if(!buckets.has(type))buckets.set(type,[]);
+        buckets.get(type).push(card);
+    }
+    const result=[],served=new Map();
+    while(result.length<selected.length){
+        const options=[...buckets].filter(([,cards])=>cards.length);
+        if(!options.length)break;
+        options.sort((a,b)=>
+            (served.get(a[0])||0)-(served.get(b[0])||0)||
+            oldestFirst(a[1][0],b[1][0])||
+            a[0].localeCompare(b[0],"pt-BR"));
+        const [type,cards]=options[0];
+        result.push(cards.shift());
+        served.set(type,(served.get(type)||0)+1);
+    }
+    return result;
+}
+
 function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
@@ -1960,7 +1984,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
             const seen = new Set(selected.map(card => card.number));
             selected.push(...ordered.filter(card => !seen.has(card.number))
                 .slice(0, Math.max(0, requested - selected.length)));
-            return selected.sort(oldestFirst);
+            return interleaveBalancedReviewTypes(selected,oldestFirst);
         }
         if (activeQuizCollection !== "todos") return selectFocusedQuizQuestions(pool, requested);
         const mistakes = shuffleQuiz(pool.filter(card => quizPracticeNumbers.has(card.number)));
