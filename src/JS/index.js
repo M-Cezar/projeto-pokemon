@@ -2921,7 +2921,7 @@ quizTypeWorkloadCopy.addEventListener("click", async () => {
         "Relatório consultivo; recordes e vencimentos não foram alterados."
     ];
     try {
-        await navigator.clipboard.writeText(lines.join("\\n"));
+        await navigator.clipboard.writeText(lines.join("\n"));
         quizHistoryImportStatus.textContent =
             "Prioridades por tipo copiadas.";
     } catch {
