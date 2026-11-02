@@ -3878,6 +3878,54 @@ quizWeakMasteryDueButton.addEventListener("click",()=>{
 quizDialog.addEventListener("close",refreshWeakMasteryDueLabel);
 
 
+// Playable practice for overdue mistakes from the least-practiced type.
+// This complements low-accuracy review without changing ranked records.
+const quizUndertrainedTypeButton=document.createElement("button");
+quizUndertrainedTypeButton.type="button";
+quizUndertrainedTypeButton.className=quizWeakMasteryDueButton.className;
+quizUndertrainedTypeButton.setAttribute("aria-label",
+    "Treinar erros vencidos do tipo com menos questões já praticadas");
+quizWeakMasteryDueButton.insertAdjacentElement("afterend",
+    quizUndertrainedTypeButton);
+function leastPracticedOverdueType(){
+    const counts=new Map();
+    for(const card of dueReviewCards()){
+        if(!quizPracticeNumbers.has(card.number))continue;
+        for(const type of new Set(card.types))
+            counts.set(type,(counts.get(type)||0)+1);
+    }
+    const candidates=[...counts].map(([type,pending])=>({
+        type,pending,asked:quizTypeHistory.get(type)?.asked||0
+    }));
+    candidates.sort((a,b)=>a.asked-b.asked||b.pending-a.pending||
+        a.type.localeCompare(b.type,"pt-BR"));
+    return candidates[0]||null;
+}
+function refreshUndertrainedTypeButton(){
+    const choice=leastPracticedOverdueType();
+    quizUndertrainedTypeButton.disabled=!choice;
+    quizUndertrainedTypeButton.textContent=choice
+        ?"Treinar tipo menos praticado: "+choice.type+
+            " ("+choice.pending+" vencidos)"
+        :"Treinar tipo menos praticado (fila vazia)";
+}
+refreshUndertrainedTypeButton();
+quizUndertrainedTypeButton.addEventListener("click",()=>{
+    const choice=leastPracticedOverdueType();
+    if(!choice){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro vencido disponível para este treino.";
+        refreshUndertrainedTypeButton();
+        return;
+    }
+    const started=launchQuizRound(false,choice.type,true,0,true,8,
+        false,false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Treino do tipo "+choice.type+" iniciado, até oito questões sem ranking."
+        :"Não foi possível iniciar o treino por prática.";
+});
+quizDialog.addEventListener("close",refreshUndertrainedTypeButton);
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
