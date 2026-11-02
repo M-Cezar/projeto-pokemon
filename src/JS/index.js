@@ -1945,7 +1945,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizPreviousDistractors.clear();
     const chosenLength = Number(quizLength.value) || 10;
     const requested = Number.isSafeInteger(questionLimit) && questionLimit > 0
-        ? Math.min(chosenLength, questionLimit) : chosenLength;
+        ? Math.min(20, questionLimit) : chosenLength;
     // General practice revisits a few saved mistakes without turning the
     // entire session into review mode. Correct answers remove them from the
     // persisted practice set, so future sessions adapt automatically.
@@ -3289,6 +3289,30 @@ quizUpcomingCalendarButton.addEventListener("click",()=>{
         "Revisões vencidas: "+overdue+". Próximos 7 dias: "+
         (upcoming||"nenhuma agendada")+
         ". Consulta local; nenhum prazo ou recorde foi alterado.";
+});
+
+// Long-form unranked review: up to fifteen overdue species in one playable
+// round. Questions still use the normal spaced-review feedback and never
+// award competitive records for this training collection.
+const quizDueMarathon=document.createElement("button");
+quizDueMarathon.type="button";
+quizDueMarathon.className=quizUpcomingCalendarButton.className;
+quizDueMarathon.textContent="Maratona de 15 revisões vencidas";
+quizDueMarathon.setAttribute("aria-label",
+    "Treinar até quinze Pokémon vencidos em uma rodada sem ranking");
+quizUpcomingCalendarButton.insertAdjacentElement("afterend",quizDueMarathon);
+quizDueMarathon.addEventListener("click",()=>{
+    const due=dueReviewCards();
+    if(!due.length){
+        quizHistoryImportStatus.textContent=
+            "Nenhuma revisão vencida disponível para a maratona.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,false,15,true);
+    quizHistoryImportStatus.textContent=started?
+        "Maratona iniciada: até "+Math.min(15,due.length)+
+        " revisões, equilibradas por tipo. Recordes competitivos preservados.":
+        "Não foi possível iniciar a maratona de revisões.";
 });
 
 quizClose.addEventListener("click", () => quizDialog.close());
