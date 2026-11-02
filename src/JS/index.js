@@ -1003,6 +1003,14 @@ quizDueMistakesPractice.textContent = "Treinar erros com revisão vencida";
 quizDueMistakesPractice.setAttribute("aria-label",
     "Praticar apenas erros salvos com revisão vencida, sem alterar recordes");
 
+// Pinned overdue cards get a focused non-competitive practice round.
+const quizPinnedDuePractice = document.createElement("button");
+quizPinnedDuePractice.type = "button";
+quizPinnedDuePractice.className = "quiz-revisao";
+quizPinnedDuePractice.textContent = "Treinar Pokémon marcados e vencidos";
+quizPinnedDuePractice.setAttribute("aria-label",
+    "Praticar somente revisões vencidas marcadas, sem ranking");
+
 const quizOverduePractice = document.createElement("button");
 quizOverduePractice.type = "button";
 quizOverduePractice.className = "quiz-revisao";
@@ -1018,7 +1026,7 @@ quizPriorityExport.setAttribute("aria-label",
     "Baixar revisões vencidas e próximas ordenadas por prazo");
 quizHistoryDetails.append(quizHistorySummary, quizHistoryFilter, quizHistoryMode,
     quizHistoryStats, quizTrendStatus, quizDailyGoal, quizDailyProgress, quizHistoryRecommendation, quizHistoryPractice, quizWeakestTypePractice, quizDailySprint,
-    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizDueNowPractice, quizDueMistakesPractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
+    quizHistoryList, quizHistoryExport, quizDailyExport, quizReviewCalendarExport, quizReviewCalendarIcs, quizReviewWorkload, quizWeeklyCopyPlan, quizBalancedPlan, quizPriorityExport, quizBacklogTriage, quizOverduePractice, quizDueNowPractice, quizDueMistakesPractice, quizPinnedDuePractice, quizWeeklyPlan, quizReviewTypePlan, quizHistoryBackup,
     quizHistoryRestore, quizHistoryFile, quizHistoryImportStatus);
 quizDialog.append(quizTitle, quizDifficultyLabel, quizLengthLabel, quizCollectionLabel, quizScore, quizTrainingSummary, quizProgress, quizImage, quizKeyboardHelp, quizOptions, quizFeedback, quizHint, quizPin, quizSkip, quizNext, quizReview, quizWeakType, quizExportMistakes, quizReplay, quizHistoryDetails, quizPause, quizClose);
 document.body.append(quizDialog);
@@ -1390,6 +1398,22 @@ quizDueMistakesPractice.addEventListener("click", () => {
     quizHistoryImportStatus.textContent = started
         ? "Treino de erros vencidos iniciado. Recordes preservados."
         : "Não foi possível iniciar a revisão dos erros.";
+});
+
+quizPinnedDuePractice.addEventListener("click", () => {
+    const due = dueReviewCards().filter(card =>
+        quizPinnedNumbers.has(card.number)).length;
+    if (!due) {
+        quizHistoryImportStatus.textContent =
+            "Nenhum Pokémon marcado está com revisão vencida.";
+        return;
+    }
+    const started = launchQuizRound(false, null, true, 0, false,
+        Math.min(10, due), false, false, false, true);
+    quizHistoryImportStatus.textContent = started
+        ? "Revisão dos marcados iniciada: até " + Math.min(10, due) +
+            " perguntas, sem alterar recordes competitivos."
+        : "Não foi possível iniciar o treino dos marcados.";
 });
 
 quizOverduePractice.addEventListener("click", () => {
