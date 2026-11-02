@@ -3569,6 +3569,46 @@ quizMissingMistakesDueButton.addEventListener("click",()=>{
             " erros vencidos não capturados. Sem ranking."
         :"Não foi possível iniciar o treino de revisões.";
 });
+
+ 
+// Urgent mistake-only sprint: due for at least seven full days.
+// Uses the existing review-only scoring path and oldest-deadline ordering.
+const quizUrgentMistakesButton=document.createElement("button");
+quizUrgentMistakesButton.type="button";
+quizUrgentMistakesButton.className=quizMissingMistakesDueButton.className;
+quizUrgentMistakesButton.setAttribute("aria-label",
+    "Treinar erros de Pokémon vencidos há pelo menos sete dias, sem ranking");
+quizMissingMistakesDueButton.insertAdjacentElement("afterend",
+    quizUrgentMistakesButton);
+function refreshUrgentMistakesLabel(){
+    const cutoff=Date.now()-7*QUIZ_DAY_MS;
+    const count=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)&&
+        quizSpacedReviews.get(card.number)?.dueAt<=cutoff).length;
+    quizUrgentMistakesButton.textContent=
+        "Treino urgente de erros (7+ dias): "+count;
+    quizUrgentMistakesButton.disabled=count===0;
+}
+refreshUrgentMistakesLabel();
+quizUrgentMistakesButton.addEventListener("click",()=>{
+    const count=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)&&
+        quizSpacedReviews.get(card.number)?.dueAt<=
+            Date.now()-7*QUIZ_DAY_MS).length;
+    refreshUrgentMistakesLabel();
+    if(!count){
+        quizHistoryImportStatus.textContent=
+            "Não há erros vencidos há sete dias para revisar.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,7,true,10,
+        false,false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Treino urgente iniciado: até "+Math.min(10,count)+
+            " erros antigos, sem alterar recordes."
+        :"Não foi possível iniciar o treino urgente.";
+});
+quizDialog.addEventListener("close",refreshUrgentMistakesLabel);
 quizDialog.addEventListener("close",refreshMissingMistakesDueLabel);
 
 quizClose.addEventListener("click", () => quizDialog.close());
