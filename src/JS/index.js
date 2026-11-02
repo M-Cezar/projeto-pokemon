@@ -3697,7 +3697,7 @@ quizDualTypeRecoveryButton.setAttribute("aria-label",
     "Treinar erros vencidos de dois tipos mais frequentes sem ranking");
 quizMistakeMicroSprintButton.insertAdjacentElement("afterend",
     quizDualTypeRecoveryButton);
-function overdueMistakeTypeLeaders(){
+function overdueMistakeTypeLeaders(limit=2){
     const frequency=new Map();
     for(const card of dueReviewCards()){
         if(!quizPracticeNumbers.has(card.number))continue;
@@ -3705,7 +3705,8 @@ function overdueMistakeTypeLeaders(){
             frequency.set(type,(frequency.get(type)||0)+1);
     }
     return [...frequency].sort((a,b)=>b[1]-a[1]||
-        a[0].localeCompare(b[0],"pt-BR")).slice(0,2);
+        a[0].localeCompare(b[0],"pt-BR")).slice(0,
+            Number.isSafeInteger(limit)&&limit>=2&&limit<=3?limit:2);
 }
 function refreshDualTypeRecoveryLabel(){
     const leaders=overdueMistakeTypeLeaders();
@@ -3734,6 +3735,42 @@ quizDualTypeRecoveryButton.addEventListener("click",()=>{
         :"Não foi possível iniciar o desafio de dois tipos.";
 });
 quizDialog.addEventListener("close",refreshDualTypeRecoveryLabel);
+
+// Three-type practice challenge: alternate the player's weakest overdue
+// categories without counting a dual-type species twice or touching rankings.
+const quizTripleTypeRecoveryButton=document.createElement("button");
+quizTripleTypeRecoveryButton.type="button";
+quizTripleTypeRecoveryButton.className=quizDualTypeRecoveryButton.className;
+quizTripleTypeRecoveryButton.setAttribute("aria-label",
+    "Treinar até dez erros vencidos dos três tipos mais frequentes sem ranking");
+quizDualTypeRecoveryButton.insertAdjacentElement("afterend",
+    quizTripleTypeRecoveryButton);
+function refreshTripleTypeRecoveryLabel(){
+    const leaders=overdueMistakeTypeLeaders(3);
+    quizTripleTypeRecoveryButton.disabled=leaders.length<3;
+    quizTripleTypeRecoveryButton.textContent=leaders.length<3
+        ?"Desafio de três tipos (aguardando erros)"
+        :"Desafio de três tipos: "+leaders.map(row=>row[0]).join(" + ");
+    quizTripleTypeRecoveryButton.title=leaders.length<3
+        ?"Necessários erros vencidos em três tipos diferentes."
+        :"Até dez revisões vencidas, alternadas entre três tipos, sem ranking.";
+}
+refreshTripleTypeRecoveryLabel();
+quizTripleTypeRecoveryButton.addEventListener("click",()=>{
+    const leaders=overdueMistakeTypeLeaders(3);
+    if(leaders.length<3){
+        quizHistoryImportStatus.textContent=
+            "Ainda não há três tipos com erros vencidos.";
+        refreshTripleTypeRecoveryLabel();
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,10,
+        true,false,false,false,false,leaders.map(row=>row[0]),"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Desafio de três tipos iniciado, até dez questões sem ranking."
+        :"Não foi possível iniciar o desafio de três tipos.";
+});
+quizDialog.addEventListener("close",refreshTripleTypeRecoveryLabel);
 
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
