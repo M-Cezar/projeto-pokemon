@@ -1619,9 +1619,11 @@ function showQuizQuestion() {
     quizNext.hidden = true;
     quizSkip.hidden = false;
     quizSkip.disabled = false;
+    quizSkip.textContent = "Pular pergunta";
     quizOptions.replaceChildren();
     const current = quizQuestions[quizIndex];
     quizImage.hidden = false;
+    quizImage.dataset.failed = "false";
     quizImage.src = current.image;
     quizImage.alt = "Silhueta de um Pokémon misterioso";
     quizImage.classList.remove("revelada");
@@ -1729,14 +1731,30 @@ function showQuizQuestion() {
         quizOptions.append(option);
     }
 }
+// An unavailable silhouette must never be scored as an identification error.
+quizImage.addEventListener("error", () => {
+    if (!quizDialog.open || quizAnswered || quizIndex >= quizQuestions.length)
+        return;
+    quizImage.dataset.failed = "true";
+    quizImage.hidden = true;
+    quizFeedback.textContent =
+        "A imagem não carregou. Use Pular para continuar sem penalidade.";
+    quizSkip.textContent = "Pular imagem indisponível";
+});
+
 quizSkip.addEventListener("click", () => {
     if (quizAnswered || quizIndex >= quizQuestions.length) return;
     quizAnswered = true;
     quizSkipped++;
-    quizStreak = 0;
+    const imageUnavailable = quizImage.dataset.failed === "true";
     const current = quizQuestions[quizIndex];
-    quizMissed.push(current);
-    recordQuizTypeResult(current, false);
+    // A broken image is a media failure, not a wrong answer by the player.
+    // Keep streak and spaced-review history intact in this case.
+    if (!imageUnavailable) {
+        quizStreak = 0;
+        quizMissed.push(current);
+        recordQuizTypeResult(current, false);
+    }
     quizImage.classList.add("revelada");
     quizImage.alt = "Pokémon revelado: " + current.name;
     quizHint.disabled = true;
@@ -1747,9 +1765,11 @@ quizSkip.addEventListener("click", () => {
         button.disabled = true;
         if (button.textContent === current.name) button.classList.add("correta");
     }
-    quizFeedback.textContent = "Pergunta pulada. Resposta: " + current.name +
-        (current.types.length ? ". Tipo: " + current.types.join(" e ") : "") +
-        ". Incluída na revisão.";
+    quizFeedback.textContent = imageUnavailable
+        ? "Imagem indisponível. Pergunta descartada sem penalidade, sem alterar a revisão ou a sequência."
+        : "Pergunta pulada. Resposta: " + current.name +
+            (current.types.length ? ". Tipo: " + current.types.join(" e ") : "") +
+            ". Incluída na revisão.";
     updateQuizScore();
     quizNext.textContent = quizIndex + 1 === quizRoundSize ? "Ver resultado" : "Próxima pergunta";
     quizNext.hidden = false;
@@ -1946,6 +1966,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
             ? quizCards.filter(card => quizPinnedNumbers.has(card.number)) : quizCards;
     const reviewPool = review ? (replayAll ? [...quizQuestions] : [...quizMissed]) : [];
     quizIsReview = dueOnly || activeQuizCollection === "marcados" ||
+        activeQuizCollection === "erros" ||
         (review && reviewPool.length > 0);
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
