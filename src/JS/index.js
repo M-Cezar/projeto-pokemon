@@ -3173,6 +3173,57 @@ quizTwoTypeDuel.addEventListener("click",()=>{
         "Não foi possível iniciar o duelo de revisão.";
 });
 
+// Three-type recovery tournament. Each due species appears only once even
+// when it has two selected types; the existing review round is unranked.
+const quizThreeTypeTournament=document.createElement("button");
+quizThreeTypeTournament.type="button";
+quizThreeTypeTournament.className=quizTwoTypeDuel.className;
+quizThreeTypeTournament.textContent="Torneio de revisão: três tipos";
+quizThreeTypeTournament.setAttribute("aria-label",
+    "Treinar revisões vencidas alternando três tipos prioritários");
+quizTwoTypeDuel.insertAdjacentElement("afterend",quizThreeTypeTournament);
+quizThreeTypeTournament.addEventListener("click",()=>{
+    const now=Date.now();
+    const due=dueReviewCards().filter(card=>{
+        const time=quizSpacedReviews.get(card.number)?.dueAt;
+        return Number.isFinite(time)&&time>=0&&time<=now;
+    });
+    const groups=new Map();
+    for(const card of due){
+        for(const type of new Set(card.types)){
+            const group=groups.get(type)||{type,count:0,mistakes:0,oldest:now};
+            group.count++;
+            if(quizPracticeNumbers.has(card.number))group.mistakes++;
+            group.oldest=Math.min(group.oldest,
+                quizSpacedReviews.get(card.number).dueAt);
+            groups.set(type,group);
+        }
+    }
+    const ranked=[...groups.values()].filter(group=>group.count>=2)
+        .map(group=>{
+            const history=quizTypeHistory.get(group.type);
+            const errorRate=history?.asked>0?
+                Math.max(0,(history.asked-history.correct)/history.asked):0;
+            return {...group,priority:group.count*2+
+                group.mistakes*3+Math.round(errorRate*10)};
+        }).sort((a,b)=>b.priority-a.priority||
+            a.oldest-b.oldest||a.type.localeCompare(b.type,"pt-BR"));
+    const selected=ranked.slice(0,3).map(group=>group.type);
+    const unique=due.filter(card=>
+        card.types.some(type=>selected.includes(type)));
+    if(selected.length!==3||unique.length<6){
+        quizHistoryImportStatus.textContent=
+            "São necessários três tipos e seis espécies distintas com revisão vencida.";
+        return;
+    }
+    const started=launchQuizRound(true,null,true,0,false,10,
+        false,false,false,false,false,selected);
+    quizHistoryImportStatus.textContent=started?
+        "Torneio iniciado: "+selected.join(" × ")+
+        ". Revisões alternadas; recordes competitivos preservados.":
+        "Não foi possível iniciar o torneio de revisão.";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
