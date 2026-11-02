@@ -3825,6 +3825,59 @@ quizFreshDueMistakesButton.addEventListener("click",()=>{
 });
 quizDialog.addEventListener("close",refreshFreshDueMistakesLabel);
 
+// Focused playable review: choose the overdue mistake type with the weakest
+// historical accuracy, not merely the type with the most pending cards.
+const quizWeakMasteryDueButton=document.createElement("button");
+quizWeakMasteryDueButton.type="button";
+quizWeakMasteryDueButton.className=quizFreshDueMistakesButton.className;
+quizWeakMasteryDueButton.setAttribute("aria-label",
+    "Treinar revisões vencidas do tipo com menor domínio histórico");
+quizFreshDueMistakesButton.insertAdjacentElement("afterend",
+    quizWeakMasteryDueButton);
+function weakestOverdueMistakeType(){
+    const counts=new Map();
+    for(const card of dueReviewCards()){
+        if(!quizPracticeNumbers.has(card.number))continue;
+        for(const type of new Set(card.types))
+            counts.set(type,(counts.get(type)||0)+1);
+    }
+    const candidates=[...counts].map(([type,pending])=>{
+        const history=quizTypeHistory.get(type);
+        const asked=history?.asked||0;
+        const correct=history?.correct||0;
+        return {type,pending,asked,
+            accuracy:asked>=3?correct/asked:1,
+            needsBaseline:asked<3};
+    });
+    candidates.sort((a,b)=>a.accuracy-b.accuracy||
+        Number(a.needsBaseline)-Number(b.needsBaseline)||
+        b.pending-a.pending||a.type.localeCompare(b.type,"pt-BR"));
+    return candidates[0]||null;
+}
+function refreshWeakMasteryDueLabel(){
+    const choice=weakestOverdueMistakeType();
+    quizWeakMasteryDueButton.disabled=!choice;
+    quizWeakMasteryDueButton.textContent=choice
+        ?"Reforçar tipo "+choice.type+" ("+choice.pending+" vencidos)"
+        :"Reforçar tipo com menor domínio (fila vazia)";
+}
+refreshWeakMasteryDueLabel();
+quizWeakMasteryDueButton.addEventListener("click",()=>{
+    const choice=weakestOverdueMistakeType();
+    if(!choice){
+        quizHistoryImportStatus.textContent="Nenhum erro vencido disponível.";
+        refreshWeakMasteryDueLabel();
+        return;
+    }
+    const started=launchQuizRound(false,choice.type,true,0,true,8,
+        false,false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Revisão de "+choice.type+" iniciada. Até oito questões sem ranking."
+        :"Não foi possível iniciar a revisão por domínio.";
+});
+quizDialog.addEventListener("close",refreshWeakMasteryDueLabel);
+
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
