@@ -3441,6 +3441,49 @@ quizWeakestTypePracticeButton.addEventListener("click",()=>{
         "Não foi possível iniciar o treino adaptativo.";
 });
 
+// Playable catch-up for the overdue type with the weakest local history.
+// Uses the existing due-only, practice-only path and never changes rankings.
+const quizWeakDuePracticeButton=document.createElement("button");
+quizWeakDuePracticeButton.type="button";
+quizWeakDuePracticeButton.className=quizWeakestTypePracticeButton.className;
+quizWeakDuePracticeButton.textContent="Revisar meu tipo vencido mais difícil";
+quizWeakDuePracticeButton.setAttribute("aria-label",
+    "Treinar até oito revisões vencidas do tipo com mais erros, sem ranking");
+quizWeakestTypePracticeButton.insertAdjacentElement("afterend",
+    quizWeakDuePracticeButton);
+quizWeakDuePracticeButton.addEventListener("click",()=>{
+    const due=dueReviewCards();
+    const groups=new Map();
+    for(const card of due){
+        for(const type of card.types){
+            if(!groups.has(type))groups.set(type,[]);
+            groups.get(type).push(card);
+        }
+    }
+    const ranked=[...groups].map(([type,cards])=>{
+        const stats=quizTypeHistory.get(type);
+        const errorRate=stats&&stats.asked>=3
+            ?(stats.asked-stats.correct)/stats.asked:0;
+        const earliest=Math.min(...cards.map(card=>
+            quizSpacedReviews.get(card.number)?.dueAt??Infinity));
+        return {type,count:cards.length,errorRate,earliest};
+    }).sort((a,b)=>b.errorRate-a.errorRate||
+        b.count-a.count||a.earliest-b.earliest||
+        a.type.localeCompare(b.type,"pt-BR"));
+    if(!ranked.length){
+        quizHistoryImportStatus.textContent=
+            "Nenhuma revisão vencida disponível no momento.";
+        return;
+    }
+    const selected=ranked[0];
+    const started=launchQuizRound(false,selected.type,true,0,false,8,
+        false,false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Treino vencido de "+selected.type+" iniciado com até "+
+            Math.min(8,selected.count)+" perguntas. Sem ranking."
+        :"Não foi possível abrir a revisão vencida.";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
