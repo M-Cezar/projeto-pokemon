@@ -2020,7 +2020,19 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
                 (quizSpacedReviews.get(a.number)?.dueAt ?? Infinity) -
                 (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
                 a.number.localeCompare(b.number);
-            const ordered = [...pool].sort(oldestFirst);
+            const ordered = [...pool].sort((a,b)=>{
+                if(avoidRecent){
+                    const da=quizSpacedReviews.get(a.number)?.dueAt ?? Infinity;
+                    const db=quizSpacedReviews.get(b.number)?.dueAt ?? Infinity;
+                    const dayA=Math.floor(da/QUIZ_DAY_MS);
+                    const dayB=Math.floor(db/QUIZ_DAY_MS);
+                    if(dayA!==dayB)return dayA-dayB;
+                    const recency=Number(recentQuizNumbers.has(a.number))-
+                        Number(recentQuizNumbers.has(b.number));
+                    if(recency)return recency;
+                }
+                return oldestFirst(a,b);
+            });
             // Alternate two or three player-selected weak types without asking a
             // dual-type Pokémon twice. Oldest deadlines lead within each type.
             if (focusedReviewTypes) {
@@ -3771,6 +3783,47 @@ quizTripleTypeRecoveryButton.addEventListener("click",()=>{
         :"Não foi possível iniciar o desafio de três tipos.";
 });
 quizDialog.addEventListener("close",refreshTripleTypeRecoveryLabel);
+
+
+// Playable recovery that avoids immediately repeating a recent mistake when
+// another overdue mistake has the same calendar-day priority. Ranked records
+// remain unchanged because this round is explicitly practice-only.
+const quizFreshDueMistakesButton=document.createElement("button");
+quizFreshDueMistakesButton.type="button";
+quizFreshDueMistakesButton.className=quizTripleTypeRecoveryButton.className;
+quizFreshDueMistakesButton.setAttribute("aria-label",
+    "Treinar até oito erros vencidos priorizando espécies não vistas recentemente");
+quizTripleTypeRecoveryButton.insertAdjacentElement("afterend",
+    quizFreshDueMistakesButton);
+function refreshFreshDueMistakesLabel(){
+    const eligible=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number));
+    const fresh=eligible.filter(card=>!recentQuizNumbers.has(card.number));
+    quizFreshDueMistakesButton.disabled=eligible.length===0;
+    quizFreshDueMistakesButton.textContent=eligible.length
+        ?"Erros vencidos sem repetição: "+fresh.length+" novos / "+
+            eligible.length+" pendentes"
+        :"Erros vencidos sem repetição (fila vazia)";
+}
+refreshFreshDueMistakesLabel();
+quizFreshDueMistakesButton.addEventListener("click",()=>{
+    const eligible=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number));
+    if(!eligible.length){
+        quizHistoryImportStatus.textContent=
+            "Não há erros vencidos para revisão neste momento.";
+        refreshFreshDueMistakesLabel();
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,8,
+        false,false,true,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Treino iniciado com até "+Math.min(8,eligible.length)+
+            " erros vencidos. Espécies recentes ficam atrás das demais "+
+            "dentro do mesmo dia de vencimento. Sem ranking."
+        :"Não foi possível iniciar o treino sem repetições.";
+});
+quizDialog.addEventListener("close",refreshFreshDueMistakesLabel);
 
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
