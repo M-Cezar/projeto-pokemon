@@ -1922,12 +1922,12 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS &&
         (!dueMistakesOnly || quizPracticeNumbers.has(card.number)) &&
         (!pinnedDueOnly || quizPinnedNumbers.has(card.number))) : [];
-    const duelTypes = dueOnly && Array.isArray(focusTypes) &&
-        focusTypes.length === 2 && focusTypes.every(type =>
-            typeof type === "string" && type.length > 0) &&
-        focusTypes[0] !== focusTypes[1] ? focusTypes : null;
-    const pool = dueOnly ? (duelTypes ? overduePool.filter(card =>
-        card.types.some(type => duelTypes.includes(type))) :
+    const focusedReviewTypes = dueOnly && Array.isArray(focusTypes) &&
+        (focusTypes.length === 2 || focusTypes.length === 3) &&
+        focusTypes.every(type => typeof type === "string" && type.length > 0) &&
+        new Set(focusTypes).size === focusTypes.length ? focusTypes : null;
+    const pool = dueOnly ? (focusedReviewTypes ? overduePool.filter(card =>
+        card.types.some(type => focusedReviewTypes.includes(type))) :
         focusType ? overduePool.filter(card =>
         card.types.includes(focusType)) : overduePool) : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
@@ -1969,10 +1969,10 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
                 (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
                 a.number.localeCompare(b.number);
             const ordered = [...pool].sort(oldestFirst);
-            // Alternate the two player-selected weak types without asking a
+            // Alternate two or three player-selected weak types without asking a
             // dual-type Pokémon twice. Oldest deadlines lead within each type.
-            if (duelTypes) {
-                const queues = duelTypes.map(type => ordered.filter(card =>
+            if (focusedReviewTypes) {
+                const queues = focusedReviewTypes.map(type => ordered.filter(card =>
                     card.types.includes(type)));
                 const selected = [], used = new Set();
                 while (selected.length < requested &&
