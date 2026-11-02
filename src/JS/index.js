@@ -428,8 +428,12 @@ function dueReviewCards() {
 }
 function recordSpacedReview(pokemon, correct) {
     const previous = quizSpacedReviews.get(pokemon.number);
+    // First-time mistakes must start a review schedule. Previously the
+    // missing previous entry was dereferenced, aborting quiz feedback.
     if (!previous && correct) return;
-    const step = correct ? Math.min(2, previous.step + 1) : 0;
+    const previousStep = previous && Number.isSafeInteger(previous.step)
+        && previous.step >= 0 && previous.step <= 2 ? previous.step : 0;
+    const step = correct ? Math.min(2, previousStep + 1) : 0;
     const interval = [1, 3, 7][step];
     // Keep the intended local calendar day across daylight-saving changes.
     // A day of study is not always exactly 24 hours in local time.
