@@ -1875,7 +1875,7 @@ function interleaveBalancedReviewTypes(selected,oldestFirst){
     return result;
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false, focusTypes = null) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1922,7 +1922,13 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS &&
         (!dueMistakesOnly || quizPracticeNumbers.has(card.number)) &&
         (!pinnedDueOnly || quizPinnedNumbers.has(card.number))) : [];
-    const pool = dueOnly ? (focusType ? overduePool.filter(card =>
+    const duelTypes = dueOnly && Array.isArray(focusTypes) &&
+        focusTypes.length === 2 && focusTypes.every(type =>
+            typeof type === "string" && type.length > 0) &&
+        focusTypes[0] !== focusTypes[1] ? focusTypes : null;
+    const pool = dueOnly ? (duelTypes ? overduePool.filter(card =>
+        card.types.some(type => duelTypes.includes(type))) :
+        focusType ? overduePool.filter(card =>
         card.types.includes(focusType)) : overduePool) : useFocus ? focusedPool : quizCollection.value === "capturados"
         ? quizCards.filter(card => capturados.has(card.number))
         : quizCollection.value === "pendentes"
@@ -1963,6 +1969,27 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
                 (quizSpacedReviews.get(b.number)?.dueAt ?? Infinity) ||
                 a.number.localeCompare(b.number);
             const ordered = [...pool].sort(oldestFirst);
+            // Alternate the two player-selected weak types without asking a
+            // dual-type Pokémon twice. Oldest deadlines lead within each type.
+            if (duelTypes) {
+                const queues = duelTypes.map(type => ordered.filter(card =>
+                    card.types.includes(type)));
+                const selected = [], used = new Set();
+                while (selected.length < requested &&
+                       queues.some(queue => queue.length > 0)) {
+                    for (const queue of queues) {
+                        let card = queue.shift();
+                        while (card && used.has(card.number)) card = queue.shift();
+                        if (!card) continue;
+                        selected.push(card);
+                        used.add(card.number);
+                        if (selected.length >= requested) break;
+                    }
+                }
+                selected.push(...ordered.filter(card => !used.has(card.number))
+                    .slice(0, requested - selected.length));
+                return selected;
+            }
             // Explicit priority sprint: pinned overdue cards first, then
             // saved mistakes, then the oldest remaining deadlines. No record
             // or capture status is changed by this review-mode selection.
@@ -3091,6 +3118,59 @@ quizWeakTypeRecovery.addEventListener("click",()=>{
         focus.cards+" pendência(s), "+focus.mistakes+
         " erro(s) salvo(s). Recordes competitivos preservados.":
         "Não foi possível iniciar a revisão do tipo "+focus.type+".";
+});
+
+// Two-type review duel: alternate overdue cards from the two highest-risk
+// types. A dual-type species is asked once and review scores never become
+// competitive records. The player explicitly starts each round.
+const quizTwoTypeDuel=document.createElement("button");
+quizTwoTypeDuel.type="button";
+quizTwoTypeDuel.className=quizWeakTypeRecovery.className;
+quizTwoTypeDuel.textContent="Duelo de revisão: dois tipos prioritários";
+quizTwoTypeDuel.setAttribute("aria-label",
+    "Treinar alternadamente revisões vencidas dos dois tipos mais difíceis");
+quizWeakTypeRecovery.insertAdjacentElement("afterend",quizTwoTypeDuel);
+quizTwoTypeDuel.addEventListener("click",()=>{
+    const groups=new Map();
+    for(const card of dueReviewCards()){
+        const due=quizSpacedReviews.get(card.number)?.dueAt;
+        if(!Number.isFinite(due)||due<0||due>Date.now())continue;
+        for(const type of new Set(card.types)){
+            const item=groups.get(type)||{type,count:0,mistakes:0};
+            item.count++;
+            if(quizPracticeNumbers.has(card.number))item.mistakes++;
+            groups.set(type,item);
+        }
+    }
+    const ranked=[...groups.values()].filter(item=>item.count>=2)
+        .map(item=>{
+            const history=quizTypeHistory.get(item.type);
+            const errorRate=history?.asked>0?
+                Math.max(0,(history.asked-history.correct)/history.asked):0;
+            return {...item,priority:item.count*2+item.mistakes*3+
+                Math.round(errorRate*10)};
+        }).sort((a,b)=>b.priority-a.priority||b.count-a.count||
+            a.type.localeCompare(b.type,"pt-BR"));
+    const pair=ranked.slice(0,2);
+    if(pair.length!==2){
+        quizHistoryImportStatus.textContent=
+            "São necessários dois tipos com ao menos duas revisões vencidas.";
+        return;
+    }
+    const selectedTypes=pair.map(item=>item.type);
+    const unique=dueReviewCards().filter(card=>
+        card.types.some(type=>selectedTypes.includes(type)));
+    if(unique.length<4){
+        quizHistoryImportStatus.textContent=
+            "Os dois tipos ainda não somam quatro espécies distintas vencidas.";
+        return;
+    }
+    const started=launchQuizRound(true,null,true,0,false,10,
+        false,false,false,false,false,selectedTypes);
+    quizHistoryImportStatus.textContent=started?
+        "Duelo iniciado: "+selectedTypes.join(" × ")+
+        ". Revisões alternadas, sem alterar recordes competitivos.":
+        "Não foi possível iniciar o duelo de revisão.";
 });
 
 quizClose.addEventListener("click", () => quizDialog.close());
