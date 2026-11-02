@@ -3360,6 +3360,32 @@ for(const mode of quizCaptureDueButtons){
     });
 }
 
+// Focused, playable recovery of overdue mistakes. This mode updates spaced
+// review learning only; it does not overwrite competitive high scores.
+const quizOverdueMistakesButton=document.createElement("button");
+quizOverdueMistakesButton.type="button";
+quizOverdueMistakesButton.className=quizDueMarathon.className;
+quizOverdueMistakesButton.textContent="Revisar erros vencidos (até 10)";
+quizOverdueMistakesButton.setAttribute("aria-label",
+    "Iniciar treino sem ranking com erros salvos e revisão vencida");
+previousCaptureReviewButton.insertAdjacentElement("afterend",
+    quizOverdueMistakesButton);
+quizOverdueMistakesButton.addEventListener("click",()=>{
+    const eligible=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number));
+    if(!eligible.length){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro salvo com revisão vencida.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,10,true);
+    quizHistoryImportStatus.textContent=started?
+        "Treino de recuperação iniciado com até "+
+        Math.min(10,eligible.length)+
+        " erros vencidos. Recordes competitivos preservados.":
+        "Não foi possível iniciar o treino de recuperação.";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
