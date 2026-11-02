@@ -3224,6 +3224,39 @@ quizThreeTypeTournament.addEventListener("click",()=>{
         "Não foi possível iniciar o torneio de revisão.";
 });
 
+// A short overdue queue should still be playable. One to three due cards
+// are enough for an unranked micro-session; distractors come from the full
+// catalog and the spaced-review result remains local to the player's device.
+const quizMicroReview=document.createElement("button");
+quizMicroReview.type="button";
+quizMicroReview.className=quizThreeTypeTournament.className;
+quizMicroReview.textContent="Microtreino de 1 a 3 revisões vencidas";
+quizMicroReview.setAttribute("aria-label",
+    "Praticar uma fila curta de revisões vencidas sem alterar recordes");
+quizThreeTypeTournament.insertAdjacentElement("afterend",quizMicroReview);
+quizMicroReview.addEventListener("click",()=>{
+    const due=dueReviewCards().filter(card=>{
+        const deadline=quizSpacedReviews.get(card.number)?.dueAt;
+        return Number.isFinite(deadline)&&deadline>=0;
+    });
+    if(due.length===0){
+        quizHistoryImportStatus.textContent=
+            "Nenhuma revisão vencida. Aguarde o próximo prazo de estudo.";
+        return;
+    }
+    if(due.length>3){
+        quizHistoryImportStatus.textContent=
+            "Há mais de três revisões vencidas. Use o treino misto para a fila maior.";
+        return;
+    }
+    const started=launchQuizRound(true,null,true,0,false,3,
+        false,false,false,false,true);
+    quizHistoryImportStatus.textContent=started?
+        "Microtreino iniciado: "+due.length+
+        " revisão(ões) por prazo, sem alterar recordes competitivos.":
+        "Não foi possível abrir o microtreino.";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
