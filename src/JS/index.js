@@ -3508,6 +3508,32 @@ quizWeakDuePracticeButton.addEventListener("click",()=>{
         :"Não foi possível abrir a revisão vencida.";
 });
 
+// Short playable review for overdue mistakes already in the collection.
+// The due-only practice path preserves ranked records and capture progress.
+const quizCapturedMistakesDueButton=document.createElement("button");
+quizCapturedMistakesDueButton.type="button";
+quizCapturedMistakesDueButton.className=quizWeakDuePracticeButton.className;
+quizCapturedMistakesDueButton.textContent="Revisar erros vencidos dos capturados";
+quizCapturedMistakesDueButton.setAttribute("aria-label",
+    "Treinar até dez erros vencidos dos Pokémon capturados, sem ranking");
+quizWeakDuePracticeButton.insertAdjacentElement("afterend",
+    quizCapturedMistakesDueButton);
+quizCapturedMistakesDueButton.addEventListener("click",()=>{
+    const available=dueReviewCards().filter(card=>
+        capturados.has(card.number)&&quizPracticeNumbers.has(card.number));
+    if(!available.length){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro vencido de Pokémon capturado precisa de revisão.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,10,
+        false,false,false,false,false,null,"captured",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Revisão iniciada: até "+Math.min(10,available.length)+
+            " erros vencidos dos capturados. Recordes preservados."
+        :"Não foi possível iniciar esta revisão.";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
