@@ -3687,6 +3687,54 @@ quizDialog.addEventListener("close",refreshPinnedMistakeReviewLabel);
 quizDialog.addEventListener("close",refreshUrgentMistakesLabel);
 quizDialog.addEventListener("close",refreshMissingMistakesDueLabel);
 
+
+// Cross-type recovery challenge for overdue saved mistakes. It is a practice
+// round, never a ranked quiz, and a dual-type species is selected only once.
+const quizDualTypeRecoveryButton=document.createElement("button");
+quizDualTypeRecoveryButton.type="button";
+quizDualTypeRecoveryButton.className=quizMistakeMicroSprintButton.className;
+quizDualTypeRecoveryButton.setAttribute("aria-label",
+    "Treinar erros vencidos de dois tipos mais frequentes sem ranking");
+quizMistakeMicroSprintButton.insertAdjacentElement("afterend",
+    quizDualTypeRecoveryButton);
+function overdueMistakeTypeLeaders(){
+    const frequency=new Map();
+    for(const card of dueReviewCards()){
+        if(!quizPracticeNumbers.has(card.number))continue;
+        for(const type of new Set(card.types))
+            frequency.set(type,(frequency.get(type)||0)+1);
+    }
+    return [...frequency].sort((a,b)=>b[1]-a[1]||
+        a[0].localeCompare(b[0],"pt-BR")).slice(0,2);
+}
+function refreshDualTypeRecoveryLabel(){
+    const leaders=overdueMistakeTypeLeaders();
+    quizDualTypeRecoveryButton.disabled=leaders.length<2;
+    quizDualTypeRecoveryButton.textContent=leaders.length<2
+        ?"Desafio de dois tipos (aguardando erros)"
+        :"Desafio de erros: "+leaders.map(row=>row[0]).join(" + ");
+    quizDualTypeRecoveryButton.title=leaders.length<2
+        ?"Necessários erros vencidos em pelo menos dois tipos."
+        :"Até oito revisões vencidas dos tipos prioritários, sem ranking.";
+}
+refreshDualTypeRecoveryLabel();
+quizDualTypeRecoveryButton.addEventListener("click",()=>{
+    const leaders=overdueMistakeTypeLeaders();
+    if(leaders.length<2){
+        quizHistoryImportStatus.textContent=
+            "Ainda não há dois tipos com erros vencidos.";
+        refreshDualTypeRecoveryLabel();
+        return;
+    }
+    const focusTypes=leaders.map(row=>row[0]);
+    const started=launchQuizRound(false,null,true,0,true,8,
+        true,false,false,false,false,focusTypes,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Desafio de dois tipos iniciado, até oito questões sem ranking."
+        :"Não foi possível iniciar o desafio de dois tipos.";
+});
+quizDialog.addEventListener("close",refreshDualTypeRecoveryLabel);
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
