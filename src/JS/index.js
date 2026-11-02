@@ -3257,6 +3257,40 @@ quizMicroReview.addEventListener("click",()=>{
         "Não foi possível abrir o microtreino.";
 });
 
+// A compact, read-only study calendar. Future deadlines are not pulled
+// forward and the player keeps control of when a review session starts.
+const quizUpcomingCalendarButton=document.createElement("button");
+quizUpcomingCalendarButton.type="button";
+quizUpcomingCalendarButton.className=quizMicroReview.className;
+quizUpcomingCalendarButton.textContent="Próximas revisões (7 dias)";
+quizUpcomingCalendarButton.setAttribute("aria-label",
+    "Consultar as revisões programadas para os próximos sete dias");
+quizMicroReview.insertAdjacentElement("afterend",quizUpcomingCalendarButton);
+quizUpcomingCalendarButton.addEventListener("click",()=>{
+    const now=Date.now();
+    const today=new Date(now);
+    today.setHours(0,0,0,0);
+    const end=new Date(today);
+    end.setDate(end.getDate()+8);
+    const days=new Map();
+    let overdue=0;
+    for(const card of quizCards){
+        const dueAt=quizSpacedReviews.get(card.number)?.dueAt;
+        if(!Number.isFinite(dueAt)||dueAt<0)continue;
+        if(dueAt<=now){overdue++;continue;}
+        if(dueAt>=end.getTime())continue;
+        const date=new Date(dueAt);
+        const key=date.toLocaleDateString("pt-BR");
+        days.set(key,(days.get(key)||0)+1);
+    }
+    const upcoming=[...days].map(([day,count])=>day+": "+count)
+        .join(" | ");
+    quizHistoryImportStatus.textContent=
+        "Revisões vencidas: "+overdue+". Próximos 7 dias: "+
+        (upcoming||"nenhuma agendada")+
+        ". Consulta local; nenhum prazo ou recorde foi alterado.";
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
