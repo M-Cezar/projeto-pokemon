@@ -3647,6 +3647,41 @@ quizPinnedMistakeReviewButton.addEventListener("click",()=>{
             Math.min(5,count)+" questões, sem ranking."
         :"Não foi possível iniciar o treino de erros marcados.";
 });
+// Three-question, oldest-first micro-practice for overdue saved mistakes.
+// It uses review scoring, so competitive records remain unchanged.
+const quizMistakeMicroSprintButton=document.createElement("button");
+quizMistakeMicroSprintButton.type="button";
+quizMistakeMicroSprintButton.className=quizPinnedMistakeReviewButton.className;
+quizMistakeMicroSprintButton.setAttribute("aria-label",
+    "Treinar até três erros vencidos em revisão rápida sem ranking");
+quizPinnedMistakeReviewButton.insertAdjacentElement("afterend",
+    quizMistakeMicroSprintButton);
+function refreshMistakeMicroSprintLabel(){
+    const count=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)).length;
+    quizMistakeMicroSprintButton.textContent=
+        "Microtreino de erros vencidos (até 3 de "+count+")";
+    quizMistakeMicroSprintButton.disabled=count===0;
+}
+refreshMistakeMicroSprintLabel();
+quizMistakeMicroSprintButton.addEventListener("click",()=>{
+    const count=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)).length;
+    refreshMistakeMicroSprintLabel();
+    if(!count){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro vencido disponível para o microtreino.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,3,
+        false,false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Microtreino iniciado: "+Math.min(3,count)+
+            " questões mais antigas, sem ranking."
+        :"Não foi possível iniciar o microtreino.";
+});
+quizDialog.addEventListener("close",refreshMistakeMicroSprintLabel);
+
 quizDialog.addEventListener("close",refreshPinnedMistakeReviewLabel);
 
 quizDialog.addEventListener("close",refreshUrgentMistakesLabel);
