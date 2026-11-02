@@ -1879,7 +1879,7 @@ function interleaveBalancedReviewTypes(selected,oldestFirst){
     return result;
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false, focusTypes = null) {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false, focusTypes = null, captureStatus = 'all') {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1925,7 +1925,10 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
         (quizSpacedReviews.get(card.number)?.dueAt ?? Infinity) <=
         Date.now() - Math.max(0, minOverdueDays) * QUIZ_DAY_MS &&
         (!dueMistakesOnly || quizPracticeNumbers.has(card.number)) &&
-        (!pinnedDueOnly || quizPinnedNumbers.has(card.number))) : [];
+        (!pinnedDueOnly || quizPinnedNumbers.has(card.number)) &&
+        (captureStatus === 'all' ||
+            (captureStatus === 'captured' && capturados.has(card.number)) ||
+            (captureStatus === 'missing' && !capturados.has(card.number)))) : [];
     const focusedReviewTypes = dueOnly && Array.isArray(focusTypes) &&
         (focusTypes.length === 2 || focusTypes.length === 3) &&
         focusTypes.every(type => typeof type === "string" && type.length > 0) &&
@@ -3318,6 +3321,44 @@ quizDueMarathon.addEventListener("click",()=>{
         " revisões, equilibradas por tipo. Recordes competitivos preservados.":
         "Não foi possível iniciar a maratona de revisões.";
 });
+
+// Two playable, unranked spaced-review queues separated by capture status.
+// Captures are never changed by studying; correct/incorrect answers continue
+// to update only the existing spaced-review history.
+const quizCaptureDueButtons=[
+    {status:"captured",label:"Revisar capturados vencidos",
+        empty:"Nenhum Pokémon capturado tem revisão vencida."},
+    {status:"missing",label:"Revisar não capturados vencidos",
+        empty:"Nenhum Pokémon não capturado tem revisão vencida."}
+];
+let previousCaptureReviewButton=quizDueMarathon;
+for(const mode of quizCaptureDueButtons){
+    const button=document.createElement("button");
+    button.type="button";
+    button.className=quizDueMarathon.className;
+    button.textContent=mode.label;
+    button.setAttribute("aria-label",mode.label+
+        " em treino sem ranking e sem alterar a coleção");
+    previousCaptureReviewButton.insertAdjacentElement("afterend",button);
+    previousCaptureReviewButton=button;
+    button.addEventListener("click",()=>{
+        const eligible=dueReviewCards().filter(card=>
+            mode.status==="captured"?
+                capturados.has(card.number):!capturados.has(card.number));
+        if(!eligible.length){
+            quizHistoryImportStatus.textContent=mode.empty;
+            return;
+        }
+        const started=launchQuizRound(false,null,true,0,false,10,true,
+            false,false,false,false,null,mode.status);
+        quizHistoryImportStatus.textContent=started?
+            "Treino iniciado: até "+Math.min(10,eligible.length)+
+            " revisões "+(mode.status==="captured"?
+                "de capturados.":"de não capturados.")+
+            " Capturas e recordes competitivos preservados.":
+            "Não foi possível iniciar a revisão selecionada.";
+    });
+}
 
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
