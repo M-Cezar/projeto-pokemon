@@ -3608,6 +3608,47 @@ quizUrgentMistakesButton.addEventListener("click",()=>{
             " erros antigos, sem alterar recordes."
         :"Não foi possível iniciar o treino urgente.";
 });
+// Intersection sprint: a marked species with a saved mistake and an overdue
+// spaced-review date. It is practice-only and never updates competitive records.
+const quizPinnedMistakeReviewButton=document.createElement("button");
+quizPinnedMistakeReviewButton.type="button";
+quizPinnedMistakeReviewButton.className=quizUrgentMistakesButton.className;
+quizPinnedMistakeReviewButton.setAttribute("aria-label",
+    "Revisar Pokémon marcados com erros vencidos, sem ranking");
+quizUrgentMistakesButton.insertAdjacentElement("afterend",
+    quizPinnedMistakeReviewButton);
+function refreshPinnedMistakeReviewLabel(){
+    const pool=dueReviewCards().filter(card=>
+        quizPinnedNumbers.has(card.number)&&
+        quizPracticeNumbers.has(card.number));
+    const captured=pool.filter(card=>capturados.has(card.number)).length;
+    const missing=pool.length-captured;
+    quizPinnedMistakeReviewButton.textContent=
+        "Erros marcados vencidos ("+pool.length+")";
+    quizPinnedMistakeReviewButton.title=
+        captured+" capturados, "+missing+" ainda não capturados";
+    quizPinnedMistakeReviewButton.disabled=pool.length===0;
+}
+refreshPinnedMistakeReviewLabel();
+quizPinnedMistakeReviewButton.addEventListener("click",()=>{
+    const count=dueReviewCards().filter(card=>
+        quizPinnedNumbers.has(card.number)&&
+        quizPracticeNumbers.has(card.number)).length;
+    refreshPinnedMistakeReviewLabel();
+    if(!count){
+        quizHistoryImportStatus.textContent=
+            "Não há erros marcados com revisão vencida.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,5,
+        false,false,false,true,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Treino de erros marcados iniciado: até "+
+            Math.min(5,count)+" questões, sem ranking."
+        :"Não foi possível iniciar o treino de erros marcados.";
+});
+quizDialog.addEventListener("close",refreshPinnedMistakeReviewLabel);
+
 quizDialog.addEventListener("close",refreshUrgentMistakesLabel);
 quizDialog.addEventListener("close",refreshMissingMistakesDueLabel);
 
