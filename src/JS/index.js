@@ -3534,6 +3534,43 @@ quizCapturedMistakesDueButton.addEventListener("click",()=>{
         :"Não foi possível iniciar esta revisão.";
 });
 
+// Practice overdue errors for species still missing from the collection.
+// The counter is computed from local revision data, never a network request.
+const quizMissingMistakesDueButton=document.createElement("button");
+quizMissingMistakesDueButton.type="button";
+quizMissingMistakesDueButton.className=quizCapturedMistakesDueButton.className;
+quizMissingMistakesDueButton.setAttribute("aria-label",
+    "Treinar erros vencidos de Pokémon não capturados sem alterar recordes");
+quizCapturedMistakesDueButton.insertAdjacentElement("afterend",
+    quizMissingMistakesDueButton);
+function refreshMissingMistakesDueLabel(){
+    const count=dueReviewCards().filter(card=>
+        !capturados.has(card.number)&&quizPracticeNumbers.has(card.number)).length;
+    quizMissingMistakesDueButton.textContent=
+        "Revisar erros vencidos não capturados ("+count+")";
+    quizMissingMistakesDueButton.title=count
+        ?count+" revisão(ões) vencida(s) aguardando treino"
+        :"Nenhum erro vencido pendente neste grupo";
+}
+refreshMissingMistakesDueLabel();
+quizMissingMistakesDueButton.addEventListener("click",()=>{
+    const available=dueReviewCards().filter(card=>
+        !capturados.has(card.number)&&quizPracticeNumbers.has(card.number));
+    refreshMissingMistakesDueLabel();
+    if(!available.length){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro vencido de Pokémon não capturado precisa de revisão.";
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,10,
+        false,false,false,false,false,null,"missing",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Treino iniciado com até "+Math.min(10,available.length)+
+            " erros vencidos não capturados. Sem ranking."
+        :"Não foi possível iniciar o treino de revisões.";
+});
+quizDialog.addEventListener("close",refreshMissingMistakesDueLabel);
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
