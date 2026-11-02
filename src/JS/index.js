@@ -1899,7 +1899,7 @@ function interleaveBalancedReviewTypes(selected,oldestFirst){
     return result;
 }
 
-function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false, focusTypes = null, captureStatus = 'all') {
+function startQuiz(review = false, focusType = null, dueOnly = false, minOverdueDays = 0, dueMistakesOnly = false, questionLimit = null, balancedDue = false, replayAll = false, avoidRecent = false, pinnedDueOnly = false, priorityDue = false, focusTypes = null, captureStatus = 'all', practiceOnly = false) {
     if (quizCards.length < 4) return;
     quizResumeButton.hidden = true;
     activeQuizDifficulty = quizDifficulty.value;
@@ -1967,7 +1967,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     const reviewPool = review ? (replayAll ? [...quizQuestions] : [...quizMissed]) : [];
     quizIsReview = dueOnly || activeQuizCollection === "marcados" ||
         activeQuizCollection === "erros" ||
-        (review && reviewPool.length > 0);
+        (review && reviewPool.length > 0) || practiceOnly;
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
@@ -3405,6 +3405,40 @@ quizOverdueMistakesButton.addEventListener("click",()=>{
         Math.min(10,eligible.length)+
         " erros vencidos. Recordes competitivos preservados.":
         "Não foi possível iniciar o treino de recuperação.";
+});
+
+// Playable adaptive training for the player's statistically weakest type.
+// At least three historical attempts are required by weakestQuizTrainingType.
+// Practice updates learning history but never overwrites competitive records.
+const quizWeakestTypePracticeButton=document.createElement("button");
+quizWeakestTypePracticeButton.type="button";
+quizWeakestTypePracticeButton.className=quizOverdueMistakesButton.className;
+quizWeakestTypePracticeButton.textContent="Treinar meu tipo mais difícil";
+quizWeakestTypePracticeButton.setAttribute("aria-label",
+    "Iniciar até dez perguntas do tipo com maior taxa de erros, sem ranking");
+quizOverdueMistakesButton.insertAdjacentElement("afterend",
+    quizWeakestTypePracticeButton);
+quizWeakestTypePracticeButton.addEventListener("click",()=>{
+    const type=weakestQuizTrainingType();
+    if(!type){
+        quizHistoryImportStatus.textContent=
+            "Ainda não há histórico suficiente de erros por tipo. "+
+            "Responda pelo menos três perguntas de um tipo para liberar o treino.";
+        return;
+    }
+    const eligible=quizCards.filter(card=>card.types.includes(type));
+    if(eligible.length<4){
+        quizHistoryImportStatus.textContent=
+            "O tipo selecionado não tem quatro espécies disponíveis.";
+        return;
+    }
+    const started=launchQuizRound(false,type,false,0,false,10,false,
+        false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started?
+        "Treino adaptativo de "+type+" iniciado com até "+
+        Math.min(10,eligible.length)+
+        " espécies. Recordes competitivos preservados.":
+        "Não foi possível iniciar o treino adaptativo.";
 });
 
 quizClose.addEventListener("click", () => quizDialog.close());
