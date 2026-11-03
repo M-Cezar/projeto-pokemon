@@ -4006,6 +4006,30 @@ quizDialog.addEventListener("close",()=>{
     updateDueReviewButton();
 });
 
+// Keep review actions in sync when another tab completes a lesson or the
+// browser resumes after a due date. Never change a round already in progress.
+function refreshAllReviewShortcuts(){
+    refreshMissingMistakesDueLabel();
+    refreshUrgentMistakesLabel();
+    refreshPinnedMistakeReviewLabel();
+    refreshMistakeMicroSprintLabel();
+    refreshFreshDueMistakesLabel();
+    refreshWeakMasteryDueLabel();
+    refreshUndertrainedTypeButton();
+    refreshPriorityMistakeSprint();
+    updateDueReviewButton();
+}
+window.addEventListener("storage",event=>{
+    if(event.key===null||event.key===QUIZ_SPACED_KEY||
+       event.key===QUIZ_MISTAKES_KEY||event.key===QUIZ_PINNED_KEY||
+       event.key===QUIZ_TYPE_HISTORY_KEY)
+        refreshAllReviewShortcuts();
+});
+window.addEventListener("focus",refreshAllReviewShortcuts);
+document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden)refreshAllReviewShortcuts();
+});
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
