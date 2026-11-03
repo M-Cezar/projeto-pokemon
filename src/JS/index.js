@@ -3536,6 +3536,7 @@ for(const mode of quizCaptureDueButtons){
         " em treino sem ranking e sem alterar a coleção");
     previousCaptureReviewButton.insertAdjacentElement("afterend",button);
     previousCaptureReviewButton=button;
+    mode.button=button;
     button.addEventListener("click",()=>{
         const eligible=dueReviewCards().filter(card=>
             mode.status==="captured"?
@@ -3554,6 +3555,20 @@ for(const mode of quizCaptureDueButtons){
             "Não foi possível iniciar a revisão selecionada.";
     });
 }
+
+// Keep both capture-specific review queues synchronized with the saved
+// spaced-review history. A disabled shortcut cannot start an empty round.
+function refreshCaptureDueButtons(){
+    const due=dueReviewCards();
+    for(const mode of quizCaptureDueButtons){
+        const count=due.filter(card=>mode.status==="captured"?
+            capturados.has(card.number):!capturados.has(card.number)).length;
+        mode.button.disabled=count===0;
+        mode.button.textContent=mode.label+(count?
+            " ("+Math.min(10,count)+" de "+count+")":" (fila vazia)");
+    }
+}
+refreshCaptureDueButtons();
 
 // Focused, playable recovery of overdue mistakes. This mode updates spaced
 // review learning only; it does not overwrite competitive high scores.
@@ -4188,6 +4203,7 @@ quizDialog.addEventListener("close",refreshAllReviewShortcuts);
 // Keep review actions in sync when another tab completes a lesson or the
 // browser resumes after a due date. Never change a round already in progress.
 function refreshAllReviewShortcuts(){
+    refreshCaptureDueButtons();
     refreshMissingMistakesDueLabel();
     refreshUrgentMistakesLabel();
     refreshPinnedMistakeReviewLabel();
