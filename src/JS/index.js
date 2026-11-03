@@ -649,16 +649,19 @@ quizForecastButton.addEventListener("click", () => {
         ". Projeção local, sem alterar prazos.";
 });
 function updateDueReviewButton() {
-    const due = dueReviewCards().length;
+    // All review shortcuts share one consistent view of the pending queue.
+    const pendingCards = dueReviewCards();
+    const dueSnapshotAt = Date.now();
+    const due = pendingCards.length;
     quizDueButton.textContent = "Revisões espaçadas pendentes (" + due + ")";
     quizDueButton.disabled = due === 0;
     quizQuickReviewButton.disabled = due === 0;
     quizBalancedDueButton.disabled = due === 0;
     quizDueTypeButton.disabled = due === 0;
-    const urgent = dueReviewCards().filter(card =>
-        quizSpacedReviews.get(card.number)?.dueAt <= Date.now() - 7 * QUIZ_DAY_MS).length;
+    const urgent = pendingCards.filter(card =>
+        quizSpacedReviews.get(card.number)?.dueAt <= dueSnapshotAt - 7 * QUIZ_DAY_MS).length;
     quizUrgentReviewButton.disabled = urgent === 0;
-    const dueMistakes = dueReviewCards().filter(card =>
+    const dueMistakes = pendingCards.filter(card =>
         quizPracticeNumbers.has(card.number)).length;
     quizDueMistakesButton.disabled = dueMistakes === 0;
     quizDueMistakesButton.textContent =
