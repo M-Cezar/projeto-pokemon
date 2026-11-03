@@ -1924,14 +1924,47 @@ function weakestQuizTrainingType() {
 // remains unchanged and no remote tracking is introduced.
 function selectFocusedQuizQuestions(pool, requested) {
     const mixed = shuffleQuiz(pool);
-    const errors = mixed.filter(card => quizPracticeNumbers.has(card.number));
+    const now = Date.now();
+    // General practice should not repeatedly skip the oldest saved errors.
+    // Pinned, overdue mistakes take precedence; among equal deadlines,
+    // prefer species absent from the previous round. No score is changed
+    // by selecting the questions.
+    const dueAt = card => {
+        const value = quizSpacedReviews.get(card.number)?.dueAt;
+        return Number.isFinite(value) && value >= 0 ? value : Infinity;
+    };
+    const errors = mixed.filter(card => quizPracticeNumbers.has(card.number))
+        .sort((a, b) =>
+            Number(dueAt(a) > now) - Number(dueAt(b) > now) ||
+            Number(!quizPinnedNumbers.has(a.number)) -
+                Number(!quizPinnedNumbers.has(b.number)) ||
+            dueAt(a) - dueAt(b) ||
+            Number(recentQuizNumbers.has(a.number)) -
+                Number(recentQuizNumbers.has(b.number)));
     const fresh = mixed.filter(card => !quizPracticeNumbers.has(card.number))
         .sort((a, b) =>
             Number(recentQuizNumbers.has(a.number)) - Number(recentQuizNumbers.has(b.number)) ||
             quizTypeWeakness(b) - quizTypeWeakness(a));
     const limit = Math.min(pool.length, requested);
     const correctionSlots = Math.min(errors.length, Math.ceil(limit / 2));
-    const selected = [...errors.slice(0, correctionSlots),
+    // First distribute correction slots across primary types when possible,
+    // then fill the remaining slots from the same oldest-first error queue.
+    const corrections = [], usedNumbers = new Set(), usedTypes = new Set();
+    for (const card of errors) {
+        const type = card.types?.[0] || "desconhecido";
+        if (usedTypes.has(type)) continue;
+        corrections.push(card);
+        usedNumbers.add(card.number);
+        usedTypes.add(type);
+        if (corrections.length === correctionSlots) break;
+    }
+    for (const card of errors) {
+        if (corrections.length >= correctionSlots) break;
+        if (usedNumbers.has(card.number)) continue;
+        corrections.push(card);
+        usedNumbers.add(card.number);
+    }
+    const selected = [...corrections,
         ...fresh.slice(0, limit - correctionSlots)];
     if (selected.length < limit) {
         const seen = new Set(selected.map(card => card.number));
