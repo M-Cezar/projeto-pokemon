@@ -1992,13 +1992,22 @@ function interleaveBalancedReviewTypes(selected,oldestFirst){
     while(result.length<selected.length){
         const options=[...buckets].filter(([,cards])=>cards.length);
         if(!options.length)break;
+        // Dual-type cards consume attention in both of their types. Choose
+        // the least-represented next card, not merely the least-served
+        // primary type, while retaining oldest-due priority on ties.
+        const exposure=card=>[...new Set(card.types?.length?
+            card.types:["desconhecido"])].reduce((total,type)=>
+            total+(served.get(type)||0),0);
         options.sort((a,b)=>
-            (served.get(a[0])||0)-(served.get(b[0])||0)||
+            exposure(a[1][0])-exposure(b[1][0])||
             oldestFirst(a[1][0],b[1][0])||
             a[0].localeCompare(b[0],"pt-BR"));
-        const [type,cards]=options[0];
-        result.push(cards.shift());
-        served.set(type,(served.get(type)||0)+1);
+        const [,cards]=options[0];
+        const next=cards.shift();
+        result.push(next);
+        for(const type of new Set(next.types?.length?
+            next.types:["desconhecido"]))
+            served.set(type,(served.get(type)||0)+1);
     }
     return result;
 }
