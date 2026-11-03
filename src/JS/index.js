@@ -1785,7 +1785,12 @@ function showQuizQuestion() {
 }
 // An unavailable silhouette must never be scored as an identification error.
 quizImage.addEventListener("error", () => {
-    if (!quizDialog.open || quizAnswered || quizIndex >= quizQuestions.length)
+    // The first silhouette starts loading before showModal() runs. A cached
+    // failure can arrive in that gap; ignoring it would leave clickable
+    // answers for an invisible Pokémon and unfairly score the player.
+    // A paused round keeps its failure flag for safe resumption.
+    if (quizAnswered || !quizQuestions.length ||
+        quizIndex >= quizQuestions.length || quizImage.dataset.failed === "true")
         return;
     // Never allow a silhouette question to be scored after its visual
     // evidence failed. A guessed answer here would unfairly count as a
