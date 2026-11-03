@@ -4035,6 +4035,48 @@ quizLongOverdueRescueButton.addEventListener("click",()=>{
 });
 quizDialog.addEventListener("close",refreshLongOverdueRescue);
 
+// Pinned mistakes that remained overdue for a week receive a dedicated
+// playable recovery round. It uses the same spaced-review engine and never
+// modifies competitive points or the leaderboard.
+const quizPinnedOverdueRescueButton=document.createElement("button");
+quizPinnedOverdueRescueButton.type="button";
+quizPinnedOverdueRescueButton.className=quizLongOverdueRescueButton.className;
+quizPinnedOverdueRescueButton.setAttribute("aria-label",
+    "Revisar erros marcados vencidos há sete dias, sem ranking");
+quizLongOverdueRescueButton.insertAdjacentElement("afterend",
+    quizPinnedOverdueRescueButton);
+function pinnedLongOverdueMistakeCount(){
+    const cutoff=Date.now()-7*QUIZ_DAY_MS;
+    return dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)&&
+        quizPinnedNumbers.has(card.number)&&
+        (quizSpacedReviews.get(card.number)?.dueAt??Infinity)<=cutoff).length;
+}
+function refreshPinnedOverdueRescue(){
+    const pending=pinnedLongOverdueMistakeCount();
+    quizPinnedOverdueRescueButton.disabled=pending===0;
+    quizPinnedOverdueRescueButton.textContent=pending
+        ?"Revisar marcados antigos: "+Math.min(10,pending)+
+            " de "+pending+" vencidos há 7+ dias"
+        :"Revisar marcados antigos (fila vazia)";
+}
+refreshPinnedOverdueRescue();
+quizPinnedOverdueRescueButton.addEventListener("click",()=>{
+    const pending=pinnedLongOverdueMistakeCount();
+    if(!pending){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro marcado vencido há sete dias.";
+        refreshPinnedOverdueRescue();
+        return;
+    }
+    const started=launchQuizRound(false,null,true,7,true,10,
+        false,false,false,true,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Revisão de erros marcados iniciada, sem ranking."
+        :"Não foi possível iniciar a revisão dos marcados.";
+});
+quizDialog.addEventListener("close",refreshPinnedOverdueRescue);
+
 // A completed review can clear its own pending error. Recalculate every
 // visible shortcut instead of leaving yesterday's counts on the screen.
 quizDialog.addEventListener("close",()=>{
@@ -4058,6 +4100,8 @@ function refreshAllReviewShortcuts(){
     refreshWeakMasteryDueLabel();
     refreshUndertrainedTypeButton();
     refreshPriorityMistakeSprint();
+    refreshLongOverdueRescue();
+    refreshPinnedOverdueRescue();
     updateDueReviewButton();
 }
 window.addEventListener("storage",event=>{
