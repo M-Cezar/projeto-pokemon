@@ -2024,8 +2024,19 @@ function interleaveBalancedReviewTypes(selected,oldestFirst){
     }
     const result=[],served=new Map();
     while(result.length<selected.length){
-        const options=[...buckets].filter(([,cards])=>cards.length);
+        let options=[...buckets].filter(([,cards])=>cards.length);
         if(!options.length)break;
+        // Balance types only among cards with comparable deadlines. A review
+        // overdue by several days must not be postponed behind fresh work
+        // merely to improve the visual variety of the current round.
+        const earliestDue=Math.min(...options.map(([,cards])=>
+            quizSpacedReviews.get(cards[0].number)?.dueAt??Infinity));
+        if(Number.isFinite(earliestDue)){
+            const urgent=options.filter(([,cards])=>
+                (quizSpacedReviews.get(cards[0].number)?.dueAt??Infinity)
+                <=earliestDue+2*QUIZ_DAY_MS);
+            if(urgent.length)options=urgent;
+        }
         // Dual-type cards consume attention in both of their types. Choose
         // the least-represented next card, not merely the least-served
         // primary type, while retaining oldest-due priority on ties.
