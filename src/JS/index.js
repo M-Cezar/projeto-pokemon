@@ -421,9 +421,16 @@ function saveSpacedReviews() {
 }
 function dueReviewCards() {
     const now = Date.now();
+    // Oldest missed review comes first, independent of Pokédex display order.
+    // An invalid persisted timestamp must never outrank genuine overdue work.
     return quizCards.filter(card => {
         const entry = quizSpacedReviews.get(card.number);
-        return entry && entry.dueAt <= now;
+        return entry && Number.isSafeInteger(entry.dueAt) &&
+            entry.dueAt > 0 && entry.dueAt <= now;
+    }).sort((left, right) => {
+        const leftDue = quizSpacedReviews.get(left.number).dueAt;
+        const rightDue = quizSpacedReviews.get(right.number).dueAt;
+        return leftDue - rightDue || left.number - right.number;
     });
 }
 function recordSpacedReview(pokemon, correct) {
