@@ -1661,6 +1661,7 @@ function showQuizQuestion() {
     quizSkip.hidden = false;
     quizSkip.disabled = false;
     quizSkip.textContent = "Pular pergunta";
+    quizSkip.removeAttribute("aria-label");
     quizOptions.replaceChildren();
     const current = quizQuestions[quizIndex];
     quizImage.hidden = false;
@@ -1786,11 +1787,24 @@ function showQuizQuestion() {
 quizImage.addEventListener("error", () => {
     if (!quizDialog.open || quizAnswered || quizIndex >= quizQuestions.length)
         return;
+    // Never allow a silhouette question to be scored after its visual
+    // evidence failed. A guessed answer here would unfairly count as a
+    // mistake and could postpone a spaced-review card.
     quizImage.dataset.failed = "true";
     quizImage.hidden = true;
+    quizHint.disabled = true;
+    quizHint.hidden = true;
+    quizPin.disabled = true;
+    for (const option of quizOptions.querySelectorAll("button")) {
+        option.disabled = true;
+        option.setAttribute("aria-disabled", "true");
+    }
     quizFeedback.textContent =
-        "A imagem não carregou. Use Pular para continuar sem penalidade.";
+        "A imagem não carregou. Pergunta descartada; use Pular para continuar sem penalidade.";
     quizSkip.textContent = "Pular imagem indisponível";
+    quizSkip.setAttribute("aria-label",
+        "Descartar pergunta sem imagem e manter a sequência e a revisão");
+    quizSkip.focus();
 });
 
 quizSkip.addEventListener("click", () => {
