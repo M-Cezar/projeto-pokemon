@@ -1103,6 +1103,7 @@ let quizHintLevel = 0;
 let quizHintsUsed = 0;
 let quizMissed = [];
 let quizSkipped = 0;
+let quizUnavailable = 0;
 let quizIsReview = false;
 // Keep the previous round's species out of fresh practice when alternatives
 // exist. Missed Pokémon still take priority in adaptive review.
@@ -1289,9 +1290,13 @@ function renderQuizSessions() {
 function recordQuizSession() {
     const mode = quizIsReview ? "revisão" :
         activeQuizCollection === "tipo" ? "tipo " + activeQuizType : activeQuizCollection;
+    const scored = quizRoundSize - quizUnavailable;
+    // A broken silhouette is not an attempted identification. Do not
+    // persist an empty or artificially low-scoring round in the history.
+    if (scored === 0) return;
     quizSessions = [{
         mode: mode.slice(0, 64), difficulty: activeQuizDifficulty,
-        total: quizRoundSize, correct: quizCorrect, points: quizPoints, at: Date.now()
+        total: scored, correct: quizCorrect, points: quizPoints, at: Date.now()
     }, ...quizSessions].slice(0, 8);
     try { localStorage.setItem(QUIZ_SESSIONS_KEY, JSON.stringify(quizSessions)); }
     catch { /* History stays visible in this session. */ }
@@ -1593,7 +1598,8 @@ function updateQuizScore() {
     quizProgress.max = quizRoundSize;
     quizProgress.value = Math.min(quizRoundSize, quizIndex + (quizAnswered ? 1 : 0));
     const answered = Math.min(quizRoundSize, quizIndex + (quizAnswered ? 1 : 0));
-    const accuracy = answered ? Math.round(100 * quizCorrect / answered) : 0;
+    const scored = Math.max(0, answered - quizUnavailable);
+    const accuracy = scored ? Math.round(100 * quizCorrect / scored) : 0;
     quizScore.textContent = "Pergunta " + Math.min(quizIndex + 1, quizRoundSize) + "/" + quizRoundSize +
         " · Acertos: " + quizCorrect + " · Pontos: " + quizPoints +
         " · Sequência: " + quizStreak + " · Precisão: " + accuracy + "%" +
@@ -1783,6 +1789,7 @@ quizSkip.addEventListener("click", () => {
     quizAnswered = true;
     quizSkipped++;
     const imageUnavailable = quizImage.dataset.failed === "true";
+    if (imageUnavailable) quizUnavailable++;
     const current = quizQuestions[quizIndex];
     // A broken image is a media failure, not a wrong answer by the player.
     // Keep streak and spaced-review history intact in this case.
@@ -2138,6 +2145,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizBestStreak = 0;
     quizHintsUsed = 0;
     quizSkipped = 0;
+    quizUnavailable = 0;
     updateQuizTrainingSummary();
     showQuizQuestion();
 }
@@ -2190,8 +2198,12 @@ function finishQuiz() {
     quizFeedback.textContent += " Maior sequência: " + quizBestStreak +
         (quizIsReview ? "" : " (recorde: " + streakRecord + ")") +
         ". Dicas utilizadas: " + quizHintsUsed + ".";
-    const accuracy = quizRoundSize ? Math.round(100 * quizCorrect / quizRoundSize) : 0;
-    quizFeedback.textContent += " Precisão: " + accuracy + "%.";
+    const scoredQuestions = quizRoundSize - quizUnavailable;
+    const accuracy = scoredQuestions ? Math.round(100 * quizCorrect / scoredQuestions) : 0;
+    quizFeedback.textContent += " Precisão: " + accuracy + "% em " +
+        scoredQuestions + " pergunta(s) válida(s).";
+    if (quizUnavailable) quizFeedback.textContent +=
+        " Imagens indisponíveis descartadas: " + quizUnavailable + ".";
     quizFeedback.textContent += " Perguntas puladas: " + quizSkipped + ".";
     // Name the missed silhouettes for targeted practice without storing a
     // separate history or changing the original session's score.
