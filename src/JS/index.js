@@ -339,6 +339,9 @@ quizBackupButton.addEventListener("click", () => {
     const backup = {
         schema: "pokedex-quiz-treino-v1",
         erros: [...quizPracticeNumbers].sort(),
+        marcados: [...quizPinnedNumbers].sort(),
+        revisoes: [...quizSpacedReviews].map(([id, entry]) =>
+            [id, {step: entry.step, dueAt: entry.dueAt}]),
         tipos: [...quizTypeHistory].map(([tipo, stats]) => [tipo, {...stats}])
     };
     const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], {type: "application/json"}));
@@ -363,9 +366,25 @@ quizBackupInput.addEventListener("change", async () => {
     try {
         const backup = JSON.parse(await file.text());
         const knownTypes = new Set(quizCards.flatMap(card => card.types));
+        const knownNumbers = new Set(quizCards.map(card => card.number));
+        // Older v1 exports contain only errors and type history. The new
+        // optional fields preserve pinned species and spaced-review dates.
+        const pinned = backup?.marcados ?? [];
+        const reviews = backup?.revisoes ?? [];
+        const latestDue = Date.now() + 8 * QUIZ_DAY_MS;
         if (backup?.schema !== "pokedex-quiz-treino-v1" ||
             !Array.isArray(backup.erros) || !Array.isArray(backup.tipos) ||
+            !Array.isArray(pinned) || !Array.isArray(reviews) ||
             backup.erros.length > quizCards.length || backup.tipos.length > knownTypes.size ||
+            pinned.length > quizCards.length || reviews.length > quizCards.length ||
+            !pinned.every(id => typeof id === "string" && knownNumbers.has(id)) ||
+            !reviews.every(entry => Array.isArray(entry) && entry.length === 2 &&
+                typeof entry[0] === "string" && knownNumbers.has(entry[0]) &&
+                entry[1] && Number.isSafeInteger(entry[1].step) &&
+                entry[1].step >= 0 && entry[1].step <= 2 &&
+                Number.isSafeInteger(entry[1].dueAt) &&
+                entry[1].dueAt >= 1577836800000 &&
+                entry[1].dueAt <= latestDue) ||
             !backup.erros.every(id => typeof id === "string" && numerosDisponiveis.has(id)) ||
             !backup.tipos.every(entry => Array.isArray(entry) && entry.length === 2 &&
                 knownTypes.has(entry[0]) && entry[1] &&
@@ -376,6 +395,17 @@ quizBackupInput.addEventListener("change", async () => {
         }
         for (const id of loadQuizMistakes()) quizPracticeNumbers.add(id);
         for (const id of backup.erros) quizPracticeNumbers.add(id);
+        for (const id of pinned) quizPinnedNumbers.add(id);
+        for (const [id, imported] of reviews) {
+            const existing = quizSpacedReviews.get(id);
+            // Never replace a more advanced local step with an older backup.
+            // Equal steps keep the earliest deadline so overdue work survives.
+            if (!existing || imported.step > existing.step ||
+                (imported.step === existing.step &&
+                 imported.dueAt < existing.dueAt))
+                quizSpacedReviews.set(id, {step: imported.step,
+                    dueAt: imported.dueAt});
+        }
         for (const [type, stats] of backup.tipos) {
             const current = quizTypeHistory.get(type);
             if (!current || stats.asked > current.asked) quizTypeHistory.set(type, {
@@ -383,8 +413,12 @@ quizBackupInput.addEventListener("change", async () => {
             });
         }
         saveQuizMistakes();
+        saveQuizPinned();
+        saveSpacedReviews();
         saveQuizTypeHistory();
-        quizBackupStatus.textContent = "Treino importado sem apagar o progresso existente.";
+        updateDueReviewButton();
+        updateQuizTrainingSummary();
+        quizBackupStatus.textContent = "Treino, marcações e revisões importados sem apagar o progresso existente.";
     } catch {
         quizBackupStatus.textContent = "Arquivo inválido. Nenhum progresso foi importado.";
     }
