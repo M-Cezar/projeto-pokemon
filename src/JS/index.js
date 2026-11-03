@@ -3995,6 +3995,46 @@ quizPriorityMistakeSprintButton.addEventListener("click",()=>{
         :"A revisão prioritária não pôde ser iniciada.";
 });
 quizDialog.addEventListener("close",refreshPriorityMistakeSprint);
+// Seven-day overdue rescue: a short playable round, not a leaderboard run.
+// The canonical quiz engine still checks each answer and spaced review date.
+const quizLongOverdueRescueButton=document.createElement("button");
+quizLongOverdueRescueButton.type="button";
+quizLongOverdueRescueButton.className=quizPriorityMistakeSprintButton.className;
+quizLongOverdueRescueButton.setAttribute("aria-label",
+    "Revisar até dez erros vencidos há pelo menos sete dias, sem ranking");
+quizPriorityMistakeSprintButton.insertAdjacentElement("afterend",
+    quizLongOverdueRescueButton);
+function longOverdueMistakeCount(){
+    const cutoff=Date.now()-7*QUIZ_DAY_MS;
+    return dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)&&
+        (quizSpacedReviews.get(card.number)?.dueAt??Infinity)<=cutoff).length;
+}
+function refreshLongOverdueRescue(){
+    const pending=longOverdueMistakeCount();
+    quizLongOverdueRescueButton.disabled=pending===0;
+    quizLongOverdueRescueButton.textContent=pending
+        ?"Recuperar erros antigos: "+Math.min(10,pending)+
+            " de "+pending+" vencidos há 7+ dias"
+        :"Recuperar erros antigos (fila vazia)";
+}
+refreshLongOverdueRescue();
+quizLongOverdueRescueButton.addEventListener("click",()=>{
+    const pending=longOverdueMistakeCount();
+    if(!pending){
+        quizHistoryImportStatus.textContent=
+            "Nenhum erro vencido há sete dias disponível.";
+        refreshLongOverdueRescue();
+        return;
+    }
+    const started=launchQuizRound(false,null,true,7,true,10,
+        false,false,false,false,false,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Recuperação iniciada: até dez erros antigos, sem ranking."
+        :"Não foi possível iniciar a recuperação de erros.";
+});
+quizDialog.addEventListener("close",refreshLongOverdueRescue);
+
 // A completed review can clear its own pending error. Recalculate every
 // visible shortcut instead of leaving yesterday's counts on the screen.
 quizDialog.addEventListener("close",()=>{
@@ -4003,6 +4043,7 @@ quizDialog.addEventListener("close",()=>{
     refreshWeakMasteryDueLabel();
     refreshUndertrainedTypeButton();
     refreshPriorityMistakeSprint();
+    refreshLongOverdueRescue();
     updateDueReviewButton();
 });
 
