@@ -430,7 +430,9 @@ function dueReviewCards() {
     }).sort((left, right) => {
         const leftDue = quizSpacedReviews.get(left.number).dueAt;
         const rightDue = quizSpacedReviews.get(right.number).dueAt;
-        return leftDue - rightDue || left.number - right.number;
+        return leftDue - rightDue ||
+            String(left.number).localeCompare(String(right.number), "pt-BR",
+                {numeric:true});
     });
 }
 function recordSpacedReview(pokemon, correct) {
@@ -3590,6 +3592,7 @@ quizCapturedMistakesDueButton.insertAdjacentElement("afterend",
 function refreshMissingMistakesDueLabel(){
     const count=dueReviewCards().filter(card=>
         !capturados.has(card.number)&&quizPracticeNumbers.has(card.number)).length;
+    quizMissingMistakesDueButton.disabled=count===0;
     quizMissingMistakesDueButton.textContent=
         "Revisar erros vencidos não capturados ("+count+")";
     quizMissingMistakesDueButton.title=count
@@ -3992,6 +3995,16 @@ quizPriorityMistakeSprintButton.addEventListener("click",()=>{
         :"A revisão prioritária não pôde ser iniciada.";
 });
 quizDialog.addEventListener("close",refreshPriorityMistakeSprint);
+// A completed review can clear its own pending error. Recalculate every
+// visible shortcut instead of leaving yesterday's counts on the screen.
+quizDialog.addEventListener("close",()=>{
+    refreshMissingMistakesDueLabel();
+    refreshUrgentMistakesLabel();
+    refreshWeakMasteryDueLabel();
+    refreshUndertrainedTypeButton();
+    refreshPriorityMistakeSprint();
+    updateDueReviewButton();
+});
 
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
