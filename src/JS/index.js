@@ -1090,6 +1090,8 @@ let quizChoicePool = [];
 // Keep consecutive questions from recycling the same wrong answers.
 // The question pool and correct answer remain unchanged.
 let quizPreviousDistractors = new Set();
+// Round-wide variety: prefer new wrong answers before recycling old ones.
+let quizRoundDistractors = new Set();
 let quizIndex = 0;
 let quizCorrect = 0;
 let quizAnswered = false;
@@ -1694,10 +1696,20 @@ function showQuizQuestion() {
             ? shuffled.sort((a, b) => difficultyScore(b) - difficultyScore(a))
             : shuffled;
     };
-    const fresh = rankDistractors(candidateDistractors.filter(card => !quizPreviousDistractors.has(card.number)));
-    const repeats = rankDistractors(candidateDistractors.filter(card => quizPreviousDistractors.has(card.number)));
-    const distractors = [...fresh, ...repeats].slice(0, availableChoices);
+    // Avoid repeating distractors across the entire round when enough
+    // distinct species exist. Reuse earlier ones only when the question
+    // pool is too small; the immediately previous set is the last fallback.
+    const fresh = rankDistractors(candidateDistractors.filter(card =>
+        !quizRoundDistractors.has(card.number) &&
+        !quizPreviousDistractors.has(card.number)));
+    const seen = rankDistractors(candidateDistractors.filter(card =>
+        quizRoundDistractors.has(card.number) &&
+        !quizPreviousDistractors.has(card.number)));
+    const repeats = rankDistractors(candidateDistractors.filter(card =>
+        quizPreviousDistractors.has(card.number)));
+    const distractors = [...fresh, ...seen, ...repeats].slice(0, availableChoices);
     quizPreviousDistractors = new Set(distractors.map(card => card.number));
+    for (const card of distractors) quizRoundDistractors.add(card.number);
     for (const [index, choice] of shuffleQuiz([current, ...distractors]).entries()) {
         const option = document.createElement("button");
         option.type = "button";
@@ -1995,6 +2007,7 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
     quizChoicePool = quizIsReview || activeQuizCollection === "erros" || dueOnly
         ? [...quizCards] : [...pool];
     quizPreviousDistractors.clear();
+    quizRoundDistractors.clear();
     const chosenLength = Number(quizLength.value) || 10;
     const requested = Number.isSafeInteger(questionLimit) && questionLimit > 0
         ? Math.min(20, questionLimit) : chosenLength;
