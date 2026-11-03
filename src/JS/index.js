@@ -3926,6 +3926,41 @@ quizUndertrainedTypeButton.addEventListener("click",()=>{
 });
 quizDialog.addEventListener("close",refreshUndertrainedTypeButton);
 
+// Short playable review prioritizes pinned, overdue mistakes without ranking.
+// All question selection still passes through the canonical quiz engine.
+const quizPriorityMistakeSprintButton=document.createElement("button");
+quizPriorityMistakeSprintButton.type="button";
+quizPriorityMistakeSprintButton.className=quizUndertrainedTypeButton.className;
+quizPriorityMistakeSprintButton.setAttribute("aria-label",
+    "Iniciar cinco questões prioritárias de erros vencidos, sem ranking");
+quizUndertrainedTypeButton.insertAdjacentElement("afterend",
+    quizPriorityMistakeSprintButton);
+function refreshPriorityMistakeSprint(){
+    const pending=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)).length;
+    quizPriorityMistakeSprintButton.disabled=pending===0;
+    quizPriorityMistakeSprintButton.textContent=pending
+        ?"Revisão rápida: "+Math.min(5,pending)+
+            " de "+pending+" erro(s) vencido(s)"
+        :"Revisão rápida: sem erros vencidos";
+}
+refreshPriorityMistakeSprint();
+quizPriorityMistakeSprintButton.addEventListener("click",()=>{
+    const pending=dueReviewCards().filter(card=>
+        quizPracticeNumbers.has(card.number)).length;
+    if(!pending){
+        quizHistoryImportStatus.textContent="Não há erros vencidos para revisar.";
+        refreshPriorityMistakeSprint();
+        return;
+    }
+    const started=launchQuizRound(false,null,true,0,true,5,true,
+        false,true,false,true,null,"all",true);
+    quizHistoryImportStatus.textContent=started
+        ?"Revisão prioritária iniciada, até cinco questões sem ranking."
+        :"A revisão prioritária não pôde ser iniciada.";
+});
+quizDialog.addEventListener("close",refreshPriorityMistakeSprint);
+
 quizClose.addEventListener("click", () => quizDialog.close());
 quizDialog.addEventListener("close", () => {
     quizDifficulty.disabled = false;
