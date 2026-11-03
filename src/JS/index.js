@@ -2182,12 +2182,21 @@ function startQuiz(review = false, focusType = null, dueOnly = false, minOverdue
             // saved mistakes, then the oldest remaining deadlines. No record
             // or capture status is changed by this review-mode selection.
             if (priorityDue) {
-                return ordered.sort((a, b) =>
-                    Number(quizPinnedNumbers.has(b.number)) -
-                        Number(quizPinnedNumbers.has(a.number)) ||
-                    Number(quizPracticeNumbers.has(b.number)) -
-                        Number(quizPracticeNumbers.has(a.number)) ||
-                    oldestFirst(a, b)).slice(0, requested);
+                // Preserve strict study priority while alternating Pokémon
+                // types within each tier. Dual types count toward both
+                // exposures, avoiding a sprint dominated by one matchup.
+                const tier = card => quizPinnedNumbers.has(card.number) ? 0 :
+                    quizPracticeNumbers.has(card.number) ? 1 : 2;
+                const selected = [];
+                for (const priority of [0, 1, 2]) {
+                    const samePriority = ordered.filter(card =>
+                        tier(card) === priority);
+                    selected.push(...interleaveBalancedReviewTypes(
+                        samePriority, oldestFirst).slice(
+                            0, requested - selected.length));
+                    if (selected.length >= requested) break;
+                }
+                return selected;
             }
             if (!balancedDue) return ordered.slice(0, requested);
             // Reserve at most half the sprint for saved mistakes, then add
