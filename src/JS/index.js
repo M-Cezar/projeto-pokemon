@@ -4079,15 +4079,7 @@ quizDialog.addEventListener("close",refreshPinnedOverdueRescue);
 
 // A completed review can clear its own pending error. Recalculate every
 // visible shortcut instead of leaving yesterday's counts on the screen.
-quizDialog.addEventListener("close",()=>{
-    refreshMissingMistakesDueLabel();
-    refreshUrgentMistakesLabel();
-    refreshWeakMasteryDueLabel();
-    refreshUndertrainedTypeButton();
-    refreshPriorityMistakeSprint();
-    refreshLongOverdueRescue();
-    updateDueReviewButton();
-});
+quizDialog.addEventListener("close",refreshAllReviewShortcuts);
 
 // Keep review actions in sync when another tab completes a lesson or the
 // browser resumes after a due date. Never change a round already in progress.
@@ -4096,6 +4088,8 @@ function refreshAllReviewShortcuts(){
     refreshUrgentMistakesLabel();
     refreshPinnedMistakeReviewLabel();
     refreshMistakeMicroSprintLabel();
+    refreshDualTypeRecoveryLabel();
+    refreshTripleTypeRecoveryLabel();
     refreshFreshDueMistakesLabel();
     refreshWeakMasteryDueLabel();
     refreshUndertrainedTypeButton();
