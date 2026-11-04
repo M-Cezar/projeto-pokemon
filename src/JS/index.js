@@ -103,6 +103,23 @@ filtroFaltantes.addEventListener("click", () => {
     filtroFaltantes.textContent = mostrarFaltantes ? "Exibindo não capturados" : "Mostrar não capturados";
     atualizarFiltros();
 });
+// Reset all collection filters together without touching captured Pokémon.
+const limparFiltros = document.createElement("button");
+limparFiltros.type = "button";
+limparFiltros.className = "capturar-pokemon";
+limparFiltros.textContent = "Limpar filtros";
+limparFiltros.setAttribute("aria-label", "Limpar busca, tipo e filtros de captura");
+if (filtros) filtros.insertBefore(limparFiltros, resultadoBusca);
+limparFiltros.addEventListener("click", () => {
+    campoBusca.value = "";
+    seletorTipo.value = "";
+    filtroCapturados.checked = false;
+    mostrarFaltantes = false;
+    filtroFaltantes.setAttribute("aria-pressed", "false");
+    filtroFaltantes.textContent = "Mostrar não capturados";
+    atualizarFiltros();
+    campoBusca.focus();
+});
 const CHAVE_CAPTURAS = "pokedex:capturados:v1";
 const numeroDoCartao = cartao => cartao.querySelectorAll(".informacoes span")[1].textContent.trim();
 const numerosDisponiveis = new Set(cartoesPokemon.map(numeroDoCartao));
