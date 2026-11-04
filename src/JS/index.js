@@ -37,6 +37,25 @@ const campoBusca = document.getElementById("buscar-pokemon");
 const seletorTipo = document.getElementById("filtrar-tipo");
 const resultadoBusca = document.getElementById("resultado-busca");
 const cartoesPokemon = [...document.querySelectorAll(".listagem-pokemon > .cartao-pokemon")];
+// Arrow keys navigate only visible cards when the card itself has focus.
+// Buttons inside each card retain their native keyboard behavior.
+for (const cartao of cartoesPokemon) {
+    cartao.tabIndex = 0;
+    cartao.addEventListener("keydown", event => {
+        if (event.target !== cartao ||
+            !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        const visible = cartoesPokemon.filter(item => !item.hidden);
+        const index = visible.indexOf(cartao);
+        if (index < 0) return;
+        const next = event.key === "Home" ? 0 :
+            event.key === "End" ? visible.length - 1 :
+            Math.max(0, Math.min(visible.length - 1,
+                index + (event.key === "ArrowRight" ? 1 : -1)));
+        event.preventDefault();
+        visible[next].focus();
+        visible[next].scrollIntoView({block: "nearest"});
+    });
+}
 const filtroCapturados = document.getElementById("filtrar-capturados") || Object.assign(document.createElement("input"), {type:"checkbox"});
 const progressoCaptura = document.getElementById("progresso-captura") || document.createElement("p");
 const filtros = document.querySelector(".filtros-pokemon");
@@ -139,6 +158,23 @@ function salvarCapturas() {
     try { localStorage.setItem(CHAVE_CAPTURAS, JSON.stringify([...capturados])); }
     catch { /* Sem armazenamento, a sessão continua jogável. */ }
 }
+// Reconcile captures saved by another tab without overwriting that tab.
+window.addEventListener("storage", event => {
+    if (event.key !== CHAVE_CAPTURAS) return;
+    const latest = carregarCapturas();
+    capturados.clear();
+    for (const numero of latest) capturados.add(numero);
+    for (const cartao of cartoesPokemon) {
+        const marcado = capturados.has(numeroDoCartao(cartao));
+        const botao = cartao.querySelector("button.capturar-pokemon");
+        if (botao) {
+            botao.setAttribute("aria-pressed", String(marcado));
+            botao.textContent = marcado ? "Capturado" : "Marcar como capturado";
+        }
+        cartao.classList.toggle("capturado", marcado);
+    }
+    atualizarFiltros();
+});
 for (const cartao of cartoesPokemon) {
     const numero = numeroDoCartao(cartao);
     const botao = document.createElement("button");
