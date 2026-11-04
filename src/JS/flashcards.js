@@ -35,7 +35,12 @@
     const masteredButton = makeButton('Já memorizei');
     const again = makeButton('Revisar este cartão depois');
     const stop = makeButton('Encerrar');
-    panel.append(heading, intro, progress, question, answer, controls);
+    const shuffleLabel = document.createElement('label');
+    const shuffleInput = document.createElement('input');
+    shuffleInput.type = 'checkbox';
+    shuffleInput.checked = false;
+    shuffleLabel.append(shuffleInput, document.createTextNode(' Embaralhar cartões da revisão'));
+    panel.append(heading, intro, shuffleLabel, progress, question, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -87,6 +92,13 @@
         masteredCards.clear();
         retryTotal = 0;
         deck = cards.filter(card => !card.hidden);
+        if (shuffleInput.checked) {
+            // Fisher-Yates shuffles only the in-memory study order.
+            for (let index = deck.length - 1; index > 0; index--) {
+                const other = Math.floor(Math.random() * (index + 1));
+                [deck[index], deck[other]] = [deck[other], deck[index]];
+            }
+        }
         if (!deck.length) return reset('Nenhum Pokémon visível. Ajuste os filtros.');
         position = 0;
         start.hidden = true;
@@ -140,6 +152,14 @@
             event.preventDefault();
             next.click();
         } else if (event.key === 'ArrowLeft' && revealed && !again.hidden) {
+            event.preventDefault();
+            again.click();
+        } else if (event.key.toLowerCase() === 'm' && revealed &&
+                   !masteredButton.hidden) {
+            event.preventDefault();
+            masteredButton.click();
+        } else if (event.key.toLowerCase() === 'r' && revealed &&
+                   !again.hidden) {
             event.preventDefault();
             again.click();
         }
