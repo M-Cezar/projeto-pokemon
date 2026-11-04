@@ -27,6 +27,12 @@ botaoAlterarTema.addEventListener("click", () => {
     catch { /* Alteração visual funciona mesmo sem persistência. */ }
 });
 
+// Keep appearance consistent when another tab changes the saved theme.
+window.addEventListener("storage", event => {
+    if (event.key === THEME_STORAGE_KEY)
+        applyPokemonTheme(event.newValue === "dark");
+});
+
 const campoBusca = document.getElementById("buscar-pokemon");
 const seletorTipo = document.getElementById("filtrar-tipo");
 const resultadoBusca = document.getElementById("resultado-busca");
@@ -34,6 +40,32 @@ const cartoesPokemon = [...document.querySelectorAll(".listagem-pokemon > .carta
 const filtroCapturados = document.getElementById("filtrar-capturados") || Object.assign(document.createElement("input"), {type:"checkbox"});
 const progressoCaptura = document.getElementById("progresso-captura") || document.createElement("p");
 const filtros = document.querySelector(".filtros-pokemon");
+// "/" and Ctrl+K jump to the Pokédex search without stealing input from
+// forms or the active quiz. Escape clears only the focused search field.
+if (campoBusca) {
+    campoBusca.setAttribute("aria-keyshortcuts", "/ Control+k");
+    document.addEventListener("keydown", event => {
+        const target = event.target;
+        const typing = target instanceof HTMLElement &&
+            (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+        if (event.key === "Escape" && document.activeElement === campoBusca &&
+            campoBusca.value) {
+            campoBusca.value = "";
+            campoBusca.dispatchEvent(new Event("input", {bubbles:true}));
+            event.preventDefault();
+            return;
+        }
+        if (document.querySelector("dialog[open]") || event.altKey || event.metaKey)
+            return;
+        if ((!typing && !event.ctrlKey && event.key === "/") ||
+            (event.ctrlKey && event.key.toLowerCase() === "k")) {
+            event.preventDefault();
+            campoBusca.focus();
+            campoBusca.select();
+        }
+    });
+}
+
 if (!filtroCapturados.id && filtros) {
     filtroCapturados.id = "filtrar-capturados";
     const rotulo = document.createElement("label");
