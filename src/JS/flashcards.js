@@ -60,7 +60,26 @@
         modeSelect.append(option);
     }
     modeLabel.append(modeSelect);
-    panel.append(heading, intro, shuffleLabel, modeLabel, progress, question, hintText, answer, controls);
+    const sizeLabel = document.createElement('label');
+    sizeLabel.textContent = ' Cartões por rodada: ';
+    const sizeSelect = document.createElement('select');
+    sizeSelect.setAttribute('aria-label', 'Quantidade de cartões por rodada');
+    for (const [value, label] of [
+        ['all', 'Todos os visíveis'], ['5', '5 cartões'],
+        ['10', '10 cartões'], ['20', '20 cartões']
+    ]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        sizeSelect.append(option);
+    }
+    sizeLabel.append(sizeSelect);
+    const progressBar = document.createElement('progress');
+    progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
+    progressBar.max = 1;
+    progressBar.value = 0;
+    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel,
+        progress, progressBar, question, hintText, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -88,6 +107,9 @@
         hintButton.hidden = true;
         start.hidden = false;
         modeSelect.disabled = false;
+        sizeSelect.disabled = false;
+        progressBar.max = 1;
+        progressBar.value = 0;
         reveal.hidden = true;
         next.hidden = true;
         again.hidden = true;
@@ -97,6 +119,8 @@
     }
     function show() {
         const card = deck[position];
+        progressBar.max = Math.max(1, deck.length);
+        progressBar.value = card ? Math.max(0, position) : deck.length;
         if (!card) {
             const pending = [...new Set(deck)].filter(item => !masteredCards.has(item));
             position = -1;
@@ -112,6 +136,7 @@
             hintButton.hidden = true;
             start.hidden = false;
             modeSelect.disabled = false;
+            sizeSelect.disabled = false;
             reveal.hidden = true;
             next.hidden = true;
             again.hidden = true;
@@ -154,6 +179,7 @@
         hintsUsed = 0;
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
+        sizeSelect.disabled = true;
         deck = cards.filter(card => !card.hidden);
         if (shuffleInput.checked) {
             // Fisher-Yates shuffles only the in-memory study order.
@@ -163,6 +189,8 @@
             }
         }
         if (!deck.length) return reset('Nenhum Pokémon visível. Ajuste os filtros.');
+        const limit = sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
+        deck = deck.slice(0, Math.min(deck.length, Number.isSafeInteger(limit) && limit > 0 ? limit : deck.length));
         position = 0;
         start.hidden = true;
         retryMissed.hidden = true;
@@ -228,6 +256,7 @@
         masteredCards.clear();
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
+        sizeSelect.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
         stop.hidden = false;
