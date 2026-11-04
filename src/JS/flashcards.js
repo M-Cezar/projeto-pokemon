@@ -131,7 +131,8 @@
     // No captures, quiz scores or personal information are persisted.
     function refreshTypeCoverage() {
         const totals = new Map();
-        for (const card of deck) {
+        // Requeued cards must not inflate the number of distinct Pokémon.
+        for (const card of new Set(deck)) {
             const names = new Set([...card.querySelectorAll('.tipos .tipo')]
                 .map(type => type.textContent.trim()).filter(Boolean));
             for (const name of names) {
@@ -192,6 +193,10 @@
     function show() {
         pauseSnapshot = null;
         pause.textContent = 'Pausar revisão';
+        // A mastered card may still have an older spaced retry in the deck.
+        // Do not ask the same question again after mastery was confirmed.
+        while (position >= 0 && position < deck.length &&
+               masteredCards.has(deck[position])) position += 1;
         const card = deck[position];
         pause.hidden = !card;
         progressBar.max = Math.max(1, deck.length);
@@ -249,7 +254,10 @@
         const types = [...card.querySelectorAll('.tipos .tipo')]
             .map(type => type.textContent.trim()).filter(Boolean);
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
+        const distinctRemaining = new Set(deck.slice(position)
+            .filter(item => !masteredCards.has(item))).size;
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
+            ' | Pokémon ainda em estudo: ' + distinctRemaining +
             (modeSelect.value === 'mixed' ? (identifyMode
                 ? ' | Identificação' : ' | Características') : '') +
             ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal +
