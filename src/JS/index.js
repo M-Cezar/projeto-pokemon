@@ -290,6 +290,14 @@ function atualizarFiltros() {
         if (!cartao.hidden) visiveis += 1;
     }
 
+    // A filter can hide the focused card or its capture button. Move focus
+    // to the search instead of stranding keyboard users on hidden content.
+    const focused = document.activeElement;
+    if (focused && cartoesPokemon.some(cartao =>
+        cartao.hidden && (cartao === focused || cartao.contains(focused)))) {
+        campoBusca.focus({preventScroll: true});
+    }
+
     barraColecao.value = capturados.size;
     progressoCaptura.textContent = capturados.size === cartoesPokemon.length
         ? `Coleção completa: ${capturados.size} Pokémon capturados.`
