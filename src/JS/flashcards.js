@@ -98,12 +98,15 @@
         typeFocusSelect.append(option);
     }
     typeFocusLabel.append(typeFocusSelect);
+    const weaknessSummary = document.createElement('p');
+    weaknessSummary.className = 'flashcards-weakness-summary';
+    weaknessSummary.setAttribute('aria-live', 'polite');
     const progressBar = document.createElement('progress');
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, typeFocusLabel,
-        progress, progressBar, question, hintText, answer, controls);
+        progress, progressBar, weaknessSummary, question, hintText, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -131,6 +134,7 @@
         difficultCards.clear();
         masteredCards.clear();
         progress.textContent = message;
+        weaknessSummary.textContent = '';
         question.textContent = '';
         answer.textContent = '';
         answer.hidden = true;
@@ -160,6 +164,18 @@
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
         if (!card) {
+            const typeCounts = new Map();
+            for (const difficult of difficultCards) {
+                const names = new Set([...difficult.querySelectorAll('.tipos .tipo')]
+                    .map(type => type.textContent.trim()).filter(Boolean));
+                for (const name of names) typeCounts.set(name, (typeCounts.get(name) || 0) + 1);
+            }
+            const ranked = [...typeCounts].sort((a, b) =>
+                b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')).slice(0, 3);
+            weaknessSummary.textContent = ranked.length
+                ? 'Tipos para reforçar: ' + ranked.map(([name, count]) =>
+                    name + ' (' + count + ')').join(', ') + '.'
+                : 'Nenhum tipo marcado como difícil nesta rodada.';
             const pending = [...new Set(deck)].filter(item => !masteredCards.has(item));
             position = -1;
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
@@ -187,6 +203,7 @@
             stop.hidden = true;
             return;
         }
+        weaknessSummary.textContent = '';
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
