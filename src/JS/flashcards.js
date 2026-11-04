@@ -34,6 +34,7 @@
     const next = makeButton('Próximo cartão');
     const masteredButton = makeButton('Já memorizei');
     const again = makeButton('Revisar este cartão depois');
+    const retryMissed = makeButton('Revisar não memorizados');
     const stop = makeButton('Encerrar');
     const shuffleLabel = document.createElement('label');
     const shuffleInput = document.createElement('input');
@@ -81,11 +82,32 @@
         next.hidden = true;
         again.hidden = true;
         masteredButton.hidden = true;
+        retryMissed.hidden = true;
         stop.hidden = true;
     }
     function show() {
         const card = deck[position];
-        if (!card) return reset('Revisão concluída: ' + masteredCards.size + ' Pokémon memorizados e ' + retryTotal + ' revisões extras realizadas.');
+        if (!card) {
+            const pending = [...new Set(deck)].filter(item => !masteredCards.has(item));
+            position = -1;
+            progress.textContent = 'Revisão concluída: ' + masteredCards.size +
+                ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
+                retryTotal + ' revisões extras realizadas.';
+            question.textContent = pending.length
+                ? 'Você pode revisar apenas os cartões ainda não memorizados.'
+                : 'Todos os cartões desta sessão foram memorizados.';
+            answer.textContent = '';
+            answer.hidden = true;
+            start.hidden = false;
+            modeSelect.disabled = false;
+            reveal.hidden = true;
+            next.hidden = true;
+            again.hidden = true;
+            masteredButton.hidden = true;
+            retryMissed.hidden = pending.length === 0;
+            stop.hidden = true;
+            return;
+        }
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
@@ -126,6 +148,7 @@
         if (!deck.length) return reset('Nenhum Pokémon visível. Ajuste os filtros.');
         position = 0;
         start.hidden = true;
+        retryMissed.hidden = true;
         stop.hidden = false;
         show();
         panel.focus();
@@ -160,6 +183,23 @@
         if (!revealed || position < 0) return;
         position += 1;
         show();
+    });
+    retryMissed.addEventListener('click', () => {
+        if (position >= 0) return;
+        const pending = [...new Set(deck)].filter(card => !masteredCards.has(card));
+        if (!pending.length) return;
+        deck = pending;
+        position = 0;
+        retryTotal = 0;
+        retryCounts.clear();
+        masteredCards.clear();
+        identifyMode = modeSelect.value === 'identity';
+        modeSelect.disabled = true;
+        start.hidden = true;
+        retryMissed.hidden = true;
+        stop.hidden = false;
+        show();
+        panel.focus();
     });
     stop.addEventListener('click', () => reset('Revisão encerrada sem alterar seu progresso.'));
     for (const id of ['buscar-pokemon', 'filtrar-tipo']) {
