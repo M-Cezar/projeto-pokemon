@@ -120,6 +120,8 @@
     let identifyMode = false;
     let retryTotal = 0;
     let hintsUsed = 0;
+    let currentRecallStreak = 0;
+    let bestRecallStreak = 0;
     let pauseSnapshot = null;
     const retryCounts = new Map();
     const skippedCards = new Set();
@@ -156,6 +158,8 @@
         revealed = false;
         retryTotal = 0;
         hintsUsed = 0;
+        currentRecallStreak = 0;
+        bestRecallStreak = 0;
         retryCounts.clear();
         skippedCards.clear();
         difficultCards.clear();
@@ -211,7 +215,8 @@
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
                 ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
                 retryTotal + ' revisões extras realizadas; ' +
-                difficultCards.size + ' cartões difíceis identificados.';
+                difficultCards.size + ' cartões difíceis identificados; melhor sequência sem ajuda: ' +
+                bestRecallStreak + '.';
             question.textContent = pending.length
                 ? 'Você pode revisar apenas os cartões ainda não memorizados.'
                 : 'Todos os cartões desta sessão foram memorizados.';
@@ -248,7 +253,7 @@
             (modeSelect.value === 'mixed' ? (identifyMode
                 ? ' | Identificação' : ' | Características') : '') +
             ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal +
-            ' | Dicas: ' + hintsUsed;
+            ' | Dicas: ' + hintsUsed + ' | Sequência sem ajuda: ' + currentRecallStreak;
         if (identifyMode) {
             question.textContent = 'Qual Pokémon corresponde a estes dados? Tipos: ' +
                 (types.join(', ') || 'não informados') + '. ' + description;
@@ -276,6 +281,8 @@
         masteredCards.clear();
         retryTotal = 0;
         hintsUsed = 0;
+        currentRecallStreak = 0;
+        bestRecallStreak = 0;
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
@@ -315,6 +322,7 @@
         hintText.hidden = false;
         hintButton.hidden = true;
         difficultCards.add(card);
+        currentRecallStreak = 0;
         skip.hidden = skippedCards.has(card);
         hintsUsed += 1;
         progress.textContent += ' | Dica utilizada';
@@ -324,6 +332,7 @@
         const card = deck[position];
         skippedCards.add(card);
         difficultCards.add(card);
+        currentRecallStreak = 0;
         deck.push(card);
         position += 1;
         show();
@@ -342,6 +351,9 @@
     });
     masteredButton.addEventListener('click', () => {
         if (!revealed || position < 0) return;
+        const recalledWithoutHelp = !difficultCards.has(deck[position]);
+        currentRecallStreak = recalledWithoutHelp ? currentRecallStreak + 1 : 0;
+        bestRecallStreak = Math.max(bestRecallStreak, currentRecallStreak);
         masteredCards.add(deck[position]);
         position += 1;
         show();
@@ -353,6 +365,7 @@
         if (attempts >= 2) return;
         retryCounts.set(card, attempts + 1);
         difficultCards.add(card);
+        currentRecallStreak = 0;
         deck.push(card);
         retryTotal += 1;
         position += 1;
@@ -368,6 +381,7 @@
         if (attempts >= 2) return;
         retryCounts.set(card, attempts + 1);
         difficultCards.add(card);
+        currentRecallStreak = 0;
         const insertion = Math.min(deck.length, position + 3);
         deck.splice(insertion, 0, card);
         retryTotal += 1;
