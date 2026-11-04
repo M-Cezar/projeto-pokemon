@@ -32,6 +32,7 @@
     const start = makeButton('Iniciar revisão');
     const reveal = makeButton('Revelar resposta');
     const next = makeButton('Próximo cartão');
+    const again = makeButton('Revisar este cartão depois');
     const stop = makeButton('Encerrar');
     panel.append(heading, intro, progress, question, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
@@ -39,10 +40,14 @@
     let deck = [];
     let position = -1;
     let revealed = false;
+    let retryTotal = 0;
+    const retryCounts = new Map();
     function reset(message) {
         deck = [];
         position = -1;
         revealed = false;
+        retryTotal = 0;
+        retryCounts.clear();
         progress.textContent = message;
         question.textContent = '';
         answer.textContent = '';
@@ -50,17 +55,18 @@
         start.hidden = false;
         reveal.hidden = true;
         next.hidden = true;
+        again.hidden = true;
         stop.hidden = true;
     }
     function show() {
         const card = deck[position];
-        if (!card) return reset('Revisão concluída. Você pode iniciar outra rodada.');
+        if (!card) return reset('Revisão concluída. ' + retryTotal + ' revisões extras programadas nesta rodada.');
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
             .map(type => type.textContent.trim()).filter(Boolean);
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
-        progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length;
+        progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length + ' | Revisões extras: ' + retryTotal;
         question.textContent = name + ' ' + number + ': quais são seus tipos e características?';
         answer.textContent = 'Tipos: ' + (types.join(', ') || 'não informados') +
             '. ' + description;
@@ -68,8 +74,11 @@
         answer.hidden = true;
         reveal.hidden = false;
         next.hidden = true;
+        again.hidden = true;
     }
     start.addEventListener('click', () => {
+        retryCounts.clear();
+        retryTotal = 0;
         deck = cards.filter(card => !card.hidden);
         if (!deck.length) return reset('Nenhum Pokémon visível. Ajuste os filtros.');
         position = 0;
@@ -84,6 +93,18 @@
         answer.hidden = false;
         reveal.hidden = true;
         next.hidden = false;
+        again.hidden = (retryCounts.get(deck[position]) || 0) >= 2;
+    });
+    again.addEventListener('click', () => {
+        if (!revealed || position < 0) return;
+        const card = deck[position];
+        const attempts = retryCounts.get(card) || 0;
+        if (attempts >= 2) return;
+        retryCounts.set(card, attempts + 1);
+        deck.push(card);
+        retryTotal += 1;
+        position += 1;
+        show();
     });
     next.addEventListener('click', () => {
         if (!revealed || position < 0) return;
@@ -104,6 +125,9 @@
         } else if (event.key === 'ArrowRight' && revealed) {
             event.preventDefault();
             next.click();
+        } else if (event.key === 'ArrowLeft' && revealed && !again.hidden) {
+            event.preventDefault();
+            again.click();
         }
     });
     reset('Selecione os filtros e inicie uma revisão dos cartões visíveis.');
