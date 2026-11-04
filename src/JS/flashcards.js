@@ -31,12 +31,17 @@
     };
     const start = makeButton('Iniciar revisão');
     const reveal = makeButton('Revelar resposta');
+    const hintButton = makeButton('Mostrar dica');
     const next = makeButton('Próximo cartão');
     const masteredButton = makeButton('Já memorizei');
     const again = makeButton('Revisar este cartão depois');
     const retryMissed = makeButton('Revisar não memorizados');
     const stop = makeButton('Encerrar');
     const shuffleLabel = document.createElement('label');
+    const hintText = document.createElement('p');
+    hintText.className = 'flashcards-hint';
+    hintText.setAttribute('aria-live', 'polite');
+    hintText.hidden = true;
     const shuffleInput = document.createElement('input');
     shuffleInput.type = 'checkbox';
     shuffleInput.checked = false;
@@ -55,7 +60,7 @@
         modeSelect.append(option);
     }
     modeLabel.append(modeSelect);
-    panel.append(heading, intro, shuffleLabel, modeLabel, progress, question, answer, controls);
+    panel.append(heading, intro, shuffleLabel, modeLabel, progress, question, hintText, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -63,6 +68,7 @@
     let revealed = false;
     let identifyMode = false;
     let retryTotal = 0;
+    let hintsUsed = 0;
     const retryCounts = new Map();
     const masteredCards = new Set();
     function reset(message) {
@@ -70,12 +76,16 @@
         position = -1;
         revealed = false;
         retryTotal = 0;
+        hintsUsed = 0;
         retryCounts.clear();
         masteredCards.clear();
         progress.textContent = message;
         question.textContent = '';
         answer.textContent = '';
         answer.hidden = true;
+        hintText.hidden = true;
+        hintText.textContent = '';
+        hintButton.hidden = true;
         start.hidden = false;
         modeSelect.disabled = false;
         reveal.hidden = true;
@@ -98,6 +108,8 @@
                 : 'Todos os cartões desta sessão foram memorizados.';
             answer.textContent = '';
             answer.hidden = true;
+            hintText.hidden = true;
+            hintButton.hidden = true;
             start.hidden = false;
             modeSelect.disabled = false;
             reveal.hidden = true;
@@ -114,7 +126,8 @@
             .map(type => type.textContent.trim()).filter(Boolean);
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
-            ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal;
+            ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal +
+            ' | Dicas: ' + hintsUsed;
         if (identifyMode) {
             question.textContent = 'Qual Pokémon corresponde a estes dados? Tipos: ' +
                 (types.join(', ') || 'não informados') + '. ' + description;
@@ -126,6 +139,9 @@
         }
         revealed = false;
         answer.hidden = true;
+        hintText.textContent = '';
+        hintText.hidden = true;
+        hintButton.hidden = false;
         reveal.hidden = false;
         next.hidden = true;
         again.hidden = true;
@@ -135,6 +151,7 @@
         retryCounts.clear();
         masteredCards.clear();
         retryTotal = 0;
+        hintsUsed = 0;
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
         deck = cards.filter(card => !card.hidden);
@@ -153,11 +170,27 @@
         show();
         panel.focus();
     });
+    hintButton.addEventListener('click', () => {
+        if (position < 0 || revealed || hintButton.hidden) return;
+        const card = deck[position];
+        const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
+        const types = [...card.querySelectorAll('.tipos .tipo')]
+            .map(type => type.textContent.trim()).filter(Boolean);
+        hintText.textContent = identifyMode
+            ? 'Dica: começa com ' + name.charAt(0).toUpperCase() +
+              ' e tem ' + [...name].length + ' letras.'
+            : 'Dica: um dos tipos é ' + (types[0] || 'não informado') + '.';
+        hintText.hidden = false;
+        hintButton.hidden = true;
+        hintsUsed += 1;
+        progress.textContent += ' | Dica utilizada';
+    });
     reveal.addEventListener('click', () => {
         if (position < 0) return;
         revealed = true;
         answer.hidden = false;
         reveal.hidden = true;
+        hintButton.hidden = true;
         next.hidden = false;
         masteredButton.hidden = masteredCards.has(deck[position]);
         again.hidden = (retryCounts.get(deck[position]) || 0) >= 2;
@@ -208,10 +241,15 @@
         });
     }
     panel.addEventListener('keydown', event => {
-        if (position < 0 || event.target instanceof HTMLInputElement) return;
+        if (position < 0 || event.target instanceof HTMLInputElement ||
+            event.target instanceof HTMLSelectElement) return;
         if (event.key === ' ' && !revealed && event.target === panel) {
             event.preventDefault();
             reveal.click();
+        } else if (event.key.toLowerCase() === 'h' && !revealed &&
+                   !hintButton.hidden) {
+            event.preventDefault();
+            hintButton.click();
         } else if (event.key === 'ArrowRight' && revealed) {
             event.preventDefault();
             next.click();
