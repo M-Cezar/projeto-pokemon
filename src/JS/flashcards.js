@@ -35,6 +35,7 @@
     const next = makeButton('Próximo cartão');
     const masteredButton = makeButton('Já memorizei');
     const again = makeButton('Revisar este cartão depois');
+    const spacedRetry = makeButton('Rever em alguns cartões');
     const skip = makeButton('Pular e revisar no fim');
     const retryMissed = makeButton('Revisar não memorizados');
     const retryDifficult = makeButton('Revisar cartões difíceis');
@@ -178,6 +179,7 @@
         reveal.hidden = true;
         next.hidden = true;
         again.hidden = true;
+        spacedRetry.hidden = true;
         masteredButton.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
@@ -225,6 +227,7 @@
             reveal.hidden = true;
             next.hidden = true;
             again.hidden = true;
+        spacedRetry.hidden = true;
             masteredButton.hidden = true;
             retryMissed.hidden = pending.length === 0;
             retryDifficult.hidden = difficultCards.size === 0;
@@ -264,6 +267,7 @@
         reveal.hidden = false;
         next.hidden = true;
         again.hidden = true;
+        spacedRetry.hidden = true;
         masteredButton.hidden = true;
     }
     start.addEventListener('click', () => {
@@ -334,6 +338,7 @@
         next.hidden = false;
         masteredButton.hidden = masteredCards.has(deck[position]);
         again.hidden = (retryCounts.get(deck[position]) || 0) >= 2;
+        spacedRetry.hidden = again.hidden;
     });
     masteredButton.addEventListener('click', () => {
         if (!revealed || position < 0) return;
@@ -349,6 +354,22 @@
         retryCounts.set(card, attempts + 1);
         difficultCards.add(card);
         deck.push(card);
+        retryTotal += 1;
+        position += 1;
+        show();
+    });
+    // Short-interval active recall, bounded to two requeues per Pokémon.
+    // The next appearance is inserted after two other cards when possible,
+    // rather than always at the very end of the current study deck.
+    spacedRetry.addEventListener('click', () => {
+        if (!revealed || position < 0 || spacedRetry.hidden || pauseSnapshot) return;
+        const card = deck[position];
+        const attempts = retryCounts.get(card) || 0;
+        if (attempts >= 2) return;
+        retryCounts.set(card, attempts + 1);
+        difficultCards.add(card);
+        const insertion = Math.min(deck.length, position + 3);
+        deck.splice(insertion, 0, card);
         retryTotal += 1;
         position += 1;
         show();
@@ -405,7 +426,7 @@
     // The exact button visibility and text are restored on resume.
     pause.addEventListener('click', () => {
         if (position < 0) return;
-        const actions = [reveal, hintButton, skip, next, masteredButton, again];
+        const actions = [reveal, hintButton, skip, next, masteredButton, again, spacedRetry];
         if (pauseSnapshot) {
             question.textContent = pauseSnapshot.question;
             answer.hidden = pauseSnapshot.answerHidden;
@@ -467,6 +488,10 @@
                    !masteredButton.hidden) {
             event.preventDefault();
             masteredButton.click();
+        } else if (event.key.toLowerCase() === 't' && revealed &&
+                   !spacedRetry.hidden) {
+            event.preventDefault();
+            spacedRetry.click();
         } else if (event.key.toLowerCase() === 'r' && revealed &&
                    !again.hidden) {
             event.preventDefault();
