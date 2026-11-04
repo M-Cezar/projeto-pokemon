@@ -102,12 +102,15 @@
     const weaknessSummary = document.createElement('p');
     weaknessSummary.className = 'flashcards-weakness-summary';
     weaknessSummary.setAttribute('aria-live', 'polite');
+    const typeCoverage = document.createElement('p');
+    typeCoverage.className = 'flashcards-type-coverage';
+    typeCoverage.setAttribute('aria-live', 'polite');
     const progressBar = document.createElement('progress');
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, typeFocusLabel,
-        progress, progressBar, weaknessSummary, question, hintText, answer, controls);
+        progress, progressBar, typeCoverage, weaknessSummary, question, hintText, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -121,6 +124,28 @@
     const skippedCards = new Set();
     const difficultCards = new Set();
     const masteredCards = new Set();
+    // In-session mastery by type is derived from the current deck only.
+    // No captures, quiz scores or personal information are persisted.
+    function refreshTypeCoverage() {
+        const totals = new Map();
+        for (const card of deck) {
+            const names = new Set([...card.querySelectorAll('.tipos .tipo')]
+                .map(type => type.textContent.trim()).filter(Boolean));
+            for (const name of names) {
+                const current = totals.get(name) || { total: 0, mastered: 0 };
+                current.total += 1;
+                if (masteredCards.has(card)) current.mastered += 1;
+                totals.set(name, current);
+            }
+        }
+        const ordered = [...totals].sort((a, b) =>
+            (b[1].total - b[1].mastered) - (a[1].total - a[1].mastered) ||
+            a[0].localeCompare(b[0], 'pt-BR')).slice(0, 4);
+        typeCoverage.textContent = ordered.length
+            ? 'Domínio por tipo: ' + ordered.map(([name, count]) =>
+                name + ' ' + count.mastered + '/' + count.total).join(' | ')
+            : '';
+    }
     function reset(message) {
         pauseSnapshot = null;
         pause.hidden = true;
@@ -136,6 +161,7 @@
         masteredCards.clear();
         progress.textContent = message;
         weaknessSummary.textContent = '';
+        typeCoverage.textContent = '';
         question.textContent = '';
         answer.textContent = '';
         answer.hidden = true;
@@ -164,6 +190,7 @@
         pause.hidden = !card;
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
+        refreshTypeCoverage();
         if (!card) {
             const typeCounts = new Map();
             for (const difficult of difficultCards) {
