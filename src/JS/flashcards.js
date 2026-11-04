@@ -35,6 +35,7 @@
     const next = makeButton('Próximo cartão');
     const masteredButton = makeButton('Já memorizei');
     const again = makeButton('Revisar este cartão depois');
+    const skip = makeButton('Pular e revisar no fim');
     const retryMissed = makeButton('Revisar não memorizados');
     const stop = makeButton('Encerrar');
     const shuffleLabel = document.createElement('label');
@@ -89,6 +90,7 @@
     let retryTotal = 0;
     let hintsUsed = 0;
     const retryCounts = new Map();
+    const skippedCards = new Set();
     const masteredCards = new Set();
     function reset(message) {
         deck = [];
@@ -97,6 +99,7 @@
         retryTotal = 0;
         hintsUsed = 0;
         retryCounts.clear();
+        skippedCards.clear();
         masteredCards.clear();
         progress.textContent = message;
         question.textContent = '';
@@ -105,6 +108,7 @@
         hintText.hidden = true;
         hintText.textContent = '';
         hintButton.hidden = true;
+        skip.hidden = true;
         start.hidden = false;
         modeSelect.disabled = false;
         sizeSelect.disabled = false;
@@ -134,6 +138,7 @@
             answer.hidden = true;
             hintText.hidden = true;
             hintButton.hidden = true;
+        skip.hidden = true;
             start.hidden = false;
             modeSelect.disabled = false;
             sizeSelect.disabled = false;
@@ -167,6 +172,7 @@
         hintText.textContent = '';
         hintText.hidden = true;
         hintButton.hidden = false;
+        skip.hidden = skippedCards.has(card);
         reveal.hidden = false;
         next.hidden = true;
         again.hidden = true;
@@ -174,6 +180,7 @@
     }
     start.addEventListener('click', () => {
         retryCounts.clear();
+        skippedCards.clear();
         masteredCards.clear();
         retryTotal = 0;
         hintsUsed = 0;
@@ -210,8 +217,17 @@
             : 'Dica: um dos tipos é ' + (types[0] || 'não informado') + '.';
         hintText.hidden = false;
         hintButton.hidden = true;
+        skip.hidden = true;
         hintsUsed += 1;
         progress.textContent += ' | Dica utilizada';
+    });
+    skip.addEventListener('click', () => {
+        if (position < 0 || revealed || skippedCards.has(deck[position])) return;
+        const card = deck[position];
+        skippedCards.add(card);
+        deck.push(card);
+        position += 1;
+        show();
     });
     reveal.addEventListener('click', () => {
         if (position < 0) return;
@@ -219,6 +235,7 @@
         answer.hidden = false;
         reveal.hidden = true;
         hintButton.hidden = true;
+        skip.hidden = true;
         next.hidden = false;
         masteredButton.hidden = masteredCards.has(deck[position]);
         again.hidden = (retryCounts.get(deck[position]) || 0) >= 2;
@@ -253,6 +270,7 @@
         position = 0;
         retryTotal = 0;
         retryCounts.clear();
+        skippedCards.clear();
         masteredCards.clear();
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
@@ -275,6 +293,10 @@
         if (event.key === ' ' && !revealed && event.target === panel) {
             event.preventDefault();
             reveal.click();
+        } else if (event.key.toLowerCase() === 's' && !revealed &&
+                   !skip.hidden) {
+            event.preventDefault();
+            skip.click();
         } else if (event.key.toLowerCase() === 'h' && !revealed &&
                    !hintButton.hidden) {
             event.preventDefault();
