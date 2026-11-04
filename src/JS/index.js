@@ -1,18 +1,30 @@
 const botaoAlterarTema = document.getElementById("botao-alterar-tema");
 const body = document.querySelector("body");
-const imagembBotaoTrocaDeTema = document.querySelector(".imagem-botao")
+const imagembBotaoTrocaDeTema = document.querySelector(".imagem-botao");
+const THEME_STORAGE_KEY = "pokemon:theme:v1";
+
+// Keep the chosen theme across reloads. Storage failures (private browsing,
+// quota or disabled storage) never prevent the catalog from opening.
+function applyPokemonTheme(dark) {
+    body.classList.toggle("modo-escuro", dark);
+    botaoAlterarTema.setAttribute("aria-pressed", String(dark));
+    botaoAlterarTema.setAttribute("aria-label", dark ? "Ativar tema claro" : "Ativar tema escuro");
+    imagembBotaoTrocaDeTema.setAttribute("src",
+        dark ? "./src/imagens/moon.svg" : "./src/imagens/sun.svg");
+    imagembBotaoTrocaDeTema.setAttribute("alt", dark ? "Lua" : "Sol");
+}
+
+let storedDark = false;
+try {
+    storedDark = localStorage.getItem(THEME_STORAGE_KEY) === "dark";
+} catch { /* Tema permanece claro quando o armazenamento está indisponível. */ }
+applyPokemonTheme(storedDark);
 
 botaoAlterarTema.addEventListener("click", () => {
-    const modoEscuroEstaAtivo = body.classList.contains("modo-escuro");
-    
-    body.classList.toggle("modo-escuro");
-    botaoAlterarTema.setAttribute("aria-pressed", String(!modoEscuroEstaAtivo));
-
-    if (modoEscuroEstaAtivo) {
-        imagembBotaoTrocaDeTema.setAttribute("src", "./src/imagens/sun.png")
-    } else {
-        imagembBotaoTrocaDeTema.setAttribute("src", "./src/imagens/moon.png")
-    }
+    const dark = !body.classList.contains("modo-escuro");
+    applyPokemonTheme(dark);
+    try { localStorage.setItem(THEME_STORAGE_KEY, dark ? "dark" : "light"); }
+    catch { /* Alteração visual funciona mesmo sem persistência. */ }
 });
 
 const campoBusca = document.getElementById("buscar-pokemon");
