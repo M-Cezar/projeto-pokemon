@@ -40,12 +40,27 @@
     shuffleInput.type = 'checkbox';
     shuffleInput.checked = false;
     shuffleLabel.append(shuffleInput, document.createTextNode(' Embaralhar cartões da revisão'));
-    panel.append(heading, intro, shuffleLabel, progress, question, answer, controls);
+    const modeLabel = document.createElement('label');
+    modeLabel.textContent = ' Modalidade do treino: ';
+    const modeSelect = document.createElement('select');
+    modeSelect.setAttribute('aria-label', 'Modalidade do treino');
+    for (const [value, label] of [
+        ['traits', 'Lembrar tipos e características'],
+        ['identity', 'Identificar o Pokémon pela descrição']
+    ]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        modeSelect.append(option);
+    }
+    modeLabel.append(modeSelect);
+    panel.append(heading, intro, shuffleLabel, modeLabel, progress, question, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
     let position = -1;
     let revealed = false;
+    let identifyMode = false;
     let retryTotal = 0;
     const retryCounts = new Map();
     const masteredCards = new Set();
@@ -61,6 +76,7 @@
         answer.textContent = '';
         answer.hidden = true;
         start.hidden = false;
+        modeSelect.disabled = false;
         reveal.hidden = true;
         next.hidden = true;
         again.hidden = true;
@@ -77,9 +93,15 @@
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
             ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal;
-        question.textContent = name + ' ' + number + ': quais são seus tipos e características?';
-        answer.textContent = 'Tipos: ' + (types.join(', ') || 'não informados') +
-            '. ' + description;
+        if (identifyMode) {
+            question.textContent = 'Qual Pokémon corresponde a estes dados? Tipos: ' +
+                (types.join(', ') || 'não informados') + '. ' + description;
+            answer.textContent = 'Resposta: ' + name + ' ' + number;
+        } else {
+            question.textContent = name + ' ' + number + ': quais são seus tipos e características?';
+            answer.textContent = 'Tipos: ' + (types.join(', ') || 'não informados') +
+                '. ' + description;
+        }
         revealed = false;
         answer.hidden = true;
         reveal.hidden = false;
@@ -91,6 +113,8 @@
         retryCounts.clear();
         masteredCards.clear();
         retryTotal = 0;
+        identifyMode = modeSelect.value === 'identity';
+        modeSelect.disabled = true;
         deck = cards.filter(card => !card.hidden);
         if (shuffleInput.checked) {
             // Fisher-Yates shuffles only the in-memory study order.
