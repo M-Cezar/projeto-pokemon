@@ -55,7 +55,8 @@
     modeSelect.setAttribute('aria-label', 'Modalidade do treino');
     for (const [value, label] of [
         ['traits', 'Lembrar tipos e características'],
-        ['identity', 'Identificar o Pokémon pela descrição']
+        ['identity', 'Identificar o Pokémon pela descrição'],
+        ['mixed', 'Treino misto: alternar perguntas']
     ]) {
         const option = document.createElement('option');
         option.value = value;
@@ -204,12 +205,18 @@
             return;
         }
         weaknessSummary.textContent = '';
+        // Mixed sessions alternate prompt styles per turn, including retries.
+        // The selection never changes captures, records or saved game data.
+        if (modeSelect.value === 'mixed')
+            identifyMode = position % 2 === 1;
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
             .map(type => type.textContent.trim()).filter(Boolean);
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
+            (modeSelect.value === 'mixed' ? (identifyMode
+                ? ' | Identificação' : ' | Características') : '') +
             ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal +
             ' | Dicas: ' + hintsUsed;
         if (identifyMode) {
