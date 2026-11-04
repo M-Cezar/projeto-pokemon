@@ -76,11 +76,32 @@
         sizeSelect.append(option);
     }
     sizeLabel.append(sizeSelect);
+    // Optional type-focused study is derived from the existing Pokédex cards.
+    // It never changes the site filters, captures or stored quiz records.
+    const typeFocusLabel = document.createElement('label');
+    typeFocusLabel.textContent = ' Foco por tipo: ';
+    const typeFocusSelect = document.createElement('select');
+    typeFocusSelect.setAttribute('aria-label', 'Tipo para revisar');
+    const typeNames = new Set();
+    for (const card of cards) {
+        for (const type of card.querySelectorAll('.tipos .tipo')) {
+            const name = type.textContent.trim();
+            if (name && name.length <= 40) typeNames.add(name);
+        }
+    }
+    for (const name of ['Todos os tipos', ...[...typeNames].sort((a,b) =>
+        a.localeCompare(b, 'pt-BR'))]) {
+        const option = document.createElement('option');
+        option.value = name === 'Todos os tipos' ? '' : name;
+        option.textContent = name;
+        typeFocusSelect.append(option);
+    }
+    typeFocusLabel.append(typeFocusSelect);
     const progressBar = document.createElement('progress');
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
-    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel,
+    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, typeFocusLabel,
         progress, progressBar, question, hintText, answer, controls);
     filters.insertAdjacentElement('afterend', panel);
 
@@ -115,6 +136,7 @@
         start.hidden = false;
         modeSelect.disabled = false;
         sizeSelect.disabled = false;
+        typeFocusSelect.disabled = false;
         progressBar.max = 1;
         progressBar.value = 0;
         reveal.hidden = true;
@@ -147,6 +169,7 @@
             start.hidden = false;
             modeSelect.disabled = false;
             sizeSelect.disabled = false;
+        typeFocusSelect.disabled = false;
             reveal.hidden = true;
             next.hidden = true;
             again.hidden = true;
@@ -193,7 +216,11 @@
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
-        deck = cards.filter(card => !card.hidden);
+        typeFocusSelect.disabled = true;
+        const selectedType = typeFocusSelect.value;
+        deck = cards.filter(card => !card.hidden &&
+            (!selectedType || [...card.querySelectorAll('.tipos .tipo')]
+                .some(type => type.textContent.trim() === selectedType)));
         if (shuffleInput.checked) {
             // Fisher-Yates shuffles only the in-memory study order.
             for (let index = deck.length - 1; index > 0; index--) {
@@ -201,7 +228,7 @@
                 [deck[index], deck[other]] = [deck[other], deck[index]];
             }
         }
-        if (!deck.length) return reset('Nenhum Pokémon visível. Ajuste os filtros.');
+        if (!deck.length) return reset('Nenhum Pokémon disponível para o tipo escolhido. Ajuste o foco ou os filtros.');
         const limit = sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
         deck = deck.slice(0, Math.min(deck.length, Number.isSafeInteger(limit) && limit > 0 ? limit : deck.length));
         position = 0;
@@ -285,6 +312,7 @@
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
+        typeFocusSelect.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
@@ -306,6 +334,7 @@
         identifyMode = modeSelect.value === 'identity';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
+        typeFocusSelect.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
