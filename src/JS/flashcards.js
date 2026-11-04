@@ -32,6 +32,7 @@
     const start = makeButton('Iniciar revisão');
     const reveal = makeButton('Revelar resposta');
     const next = makeButton('Próximo cartão');
+    const masteredButton = makeButton('Já memorizei');
     const again = makeButton('Revisar este cartão depois');
     const stop = makeButton('Encerrar');
     panel.append(heading, intro, progress, question, answer, controls);
@@ -42,12 +43,14 @@
     let revealed = false;
     let retryTotal = 0;
     const retryCounts = new Map();
+    const masteredCards = new Set();
     function reset(message) {
         deck = [];
         position = -1;
         revealed = false;
         retryTotal = 0;
         retryCounts.clear();
+        masteredCards.clear();
         progress.textContent = message;
         question.textContent = '';
         answer.textContent = '';
@@ -56,17 +59,19 @@
         reveal.hidden = true;
         next.hidden = true;
         again.hidden = true;
+        masteredButton.hidden = true;
         stop.hidden = true;
     }
     function show() {
         const card = deck[position];
-        if (!card) return reset('Revisão concluída. ' + retryTotal + ' revisões extras programadas nesta rodada.');
+        if (!card) return reset('Revisão concluída: ' + masteredCards.size + ' Pokémon memorizados e ' + retryTotal + ' revisões extras realizadas.');
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
             .map(type => type.textContent.trim()).filter(Boolean);
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
-        progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length + ' | Revisões extras: ' + retryTotal;
+        progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
+            ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal;
         question.textContent = name + ' ' + number + ': quais são seus tipos e características?';
         answer.textContent = 'Tipos: ' + (types.join(', ') || 'não informados') +
             '. ' + description;
@@ -75,9 +80,11 @@
         reveal.hidden = false;
         next.hidden = true;
         again.hidden = true;
+        masteredButton.hidden = true;
     }
     start.addEventListener('click', () => {
         retryCounts.clear();
+        masteredCards.clear();
         retryTotal = 0;
         deck = cards.filter(card => !card.hidden);
         if (!deck.length) return reset('Nenhum Pokémon visível. Ajuste os filtros.');
@@ -93,7 +100,14 @@
         answer.hidden = false;
         reveal.hidden = true;
         next.hidden = false;
+        masteredButton.hidden = masteredCards.has(deck[position]);
         again.hidden = (retryCounts.get(deck[position]) || 0) >= 2;
+    });
+    masteredButton.addEventListener('click', () => {
+        if (!revealed || position < 0) return;
+        masteredCards.add(deck[position]);
+        position += 1;
+        show();
     });
     again.addEventListener('click', () => {
         if (!revealed || position < 0) return;
