@@ -38,6 +38,7 @@
     const skip = makeButton('Pular e revisar no fim');
     const retryMissed = makeButton('Revisar não memorizados');
     const retryDifficult = makeButton('Revisar cartões difíceis');
+    const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
     const shuffleLabel = document.createElement('label');
     const hintText = document.createElement('p');
@@ -111,11 +112,15 @@
     let identifyMode = false;
     let retryTotal = 0;
     let hintsUsed = 0;
+    let pauseSnapshot = null;
     const retryCounts = new Map();
     const skippedCards = new Set();
     const difficultCards = new Set();
     const masteredCards = new Set();
     function reset(message) {
+        pauseSnapshot = null;
+        pause.hidden = true;
+        pause.textContent = 'Pausar revisão';
         deck = [];
         position = -1;
         revealed = false;
@@ -148,7 +153,10 @@
         stop.hidden = true;
     }
     function show() {
+        pauseSnapshot = null;
+        pause.textContent = 'Pausar revisão';
         const card = deck[position];
+        pause.hidden = !card;
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
         if (!card) {
@@ -342,6 +350,36 @@
         show();
         panel.focus();
     });
+    // Pause hides the current question and answer without advancing the deck.
+    // The exact button visibility and text are restored on resume.
+    pause.addEventListener('click', () => {
+        if (position < 0) return;
+        const actions = [reveal, hintButton, skip, next, masteredButton, again];
+        if (pauseSnapshot) {
+            question.textContent = pauseSnapshot.question;
+            answer.hidden = pauseSnapshot.answerHidden;
+            hintText.hidden = pauseSnapshot.hintHidden;
+            actions.forEach((button, index) => {
+                button.hidden = pauseSnapshot.hidden[index];
+            });
+            pauseSnapshot = null;
+            pause.textContent = 'Pausar revisão';
+            panel.focus();
+            return;
+        }
+        pauseSnapshot = {
+            question: question.textContent,
+            answerHidden: answer.hidden,
+            hintHidden: hintText.hidden,
+            hidden: actions.map(button => button.hidden)
+        };
+        question.textContent = 'Revisão pausada. Retome para continuar.';
+        answer.hidden = true;
+        hintText.hidden = true;
+        actions.forEach(button => { button.hidden = true; });
+        pause.textContent = 'Retomar revisão';
+        panel.focus();
+    });
     stop.addEventListener('click', () => reset('Revisão encerrada sem alterar seu progresso.'));
     for (const id of ['buscar-pokemon', 'filtrar-tipo']) {
         document.getElementById(id)?.addEventListener('input', () => {
@@ -351,6 +389,12 @@
     panel.addEventListener('keydown', event => {
         if (position < 0 || event.target instanceof HTMLInputElement ||
             event.target instanceof HTMLSelectElement) return;
+        if (event.key.toLowerCase() === 'p') {
+            event.preventDefault();
+            pause.click();
+            return;
+        }
+        if (pauseSnapshot) return;
         if (event.key === ' ' && !revealed && event.target === panel) {
             event.preventDefault();
             reveal.click();
