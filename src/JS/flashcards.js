@@ -37,6 +37,7 @@
     const again = makeButton('Revisar este cartão depois');
     const skip = makeButton('Pular e revisar no fim');
     const retryMissed = makeButton('Revisar não memorizados');
+    const retryDifficult = makeButton('Revisar cartões difíceis');
     const stop = makeButton('Encerrar');
     const shuffleLabel = document.createElement('label');
     const hintText = document.createElement('p');
@@ -91,6 +92,7 @@
     let hintsUsed = 0;
     const retryCounts = new Map();
     const skippedCards = new Set();
+    const difficultCards = new Set();
     const masteredCards = new Set();
     function reset(message) {
         deck = [];
@@ -100,6 +102,7 @@
         hintsUsed = 0;
         retryCounts.clear();
         skippedCards.clear();
+        difficultCards.clear();
         masteredCards.clear();
         progress.textContent = message;
         question.textContent = '';
@@ -119,6 +122,7 @@
         again.hidden = true;
         masteredButton.hidden = true;
         retryMissed.hidden = true;
+        retryDifficult.hidden = true;
         stop.hidden = true;
     }
     function show() {
@@ -130,7 +134,8 @@
             position = -1;
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
                 ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
-                retryTotal + ' revisões extras realizadas.';
+                retryTotal + ' revisões extras realizadas; ' +
+                difficultCards.size + ' cartões difíceis identificados.';
             question.textContent = pending.length
                 ? 'Você pode revisar apenas os cartões ainda não memorizados.'
                 : 'Todos os cartões desta sessão foram memorizados.';
@@ -147,6 +152,7 @@
             again.hidden = true;
             masteredButton.hidden = true;
             retryMissed.hidden = pending.length === 0;
+            retryDifficult.hidden = difficultCards.size === 0;
             stop.hidden = true;
             return;
         }
@@ -201,6 +207,7 @@
         position = 0;
         start.hidden = true;
         retryMissed.hidden = true;
+        retryDifficult.hidden = true;
         stop.hidden = false;
         show();
         panel.focus();
@@ -217,7 +224,8 @@
             : 'Dica: um dos tipos é ' + (types[0] || 'não informado') + '.';
         hintText.hidden = false;
         hintButton.hidden = true;
-        skip.hidden = true;
+        difficultCards.add(card);
+        skip.hidden = skippedCards.has(card);
         hintsUsed += 1;
         progress.textContent += ' | Dica utilizada';
     });
@@ -225,6 +233,7 @@
         if (position < 0 || revealed || skippedCards.has(deck[position])) return;
         const card = deck[position];
         skippedCards.add(card);
+        difficultCards.add(card);
         deck.push(card);
         position += 1;
         show();
@@ -252,6 +261,7 @@
         const attempts = retryCounts.get(card) || 0;
         if (attempts >= 2) return;
         retryCounts.set(card, attempts + 1);
+        difficultCards.add(card);
         deck.push(card);
         retryTotal += 1;
         position += 1;
@@ -277,6 +287,28 @@
         sizeSelect.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
+        retryDifficult.hidden = true;
+        stop.hidden = false;
+        show();
+        panel.focus();
+    });
+    retryDifficult.addEventListener('click', () => {
+        if (position >= 0 || !difficultCards.size) return;
+        // New focused round; captures and quiz records remain unchanged.
+        deck = [...difficultCards];
+        position = 0;
+        retryTotal = 0;
+        hintsUsed = 0;
+        retryCounts.clear();
+        skippedCards.clear();
+        difficultCards.clear();
+        masteredCards.clear();
+        identifyMode = modeSelect.value === 'identity';
+        modeSelect.disabled = true;
+        sizeSelect.disabled = true;
+        start.hidden = true;
+        retryMissed.hidden = true;
+        retryDifficult.hidden = true;
         stop.hidden = false;
         show();
         panel.focus();
