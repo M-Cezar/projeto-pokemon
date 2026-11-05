@@ -196,12 +196,17 @@
     challengeScoreStatus.className = 'flashcards-challenge-score';
     challengeScoreStatus.setAttribute('role', 'status');
     challengeScoreStatus.setAttribute('aria-live', 'polite');
+    // In-session learning metrics never touch capture or quiz persistence.
+    const recallQuality = document.createElement('p');
+    recallQuality.className = 'flashcards-recall-quality';
+    recallQuality.setAttribute('role', 'status');
+    recallQuality.setAttribute('aria-live', 'polite');
     const progressBar = document.createElement('progress');
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
-        progress, progressBar, goalLabel, goalStatus, challengeScoreStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
+        progress, progressBar, recallQuality, goalLabel, goalStatus, challengeScoreStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
         shortcutGuide, copyStudyFeedback, previewDeckSummary, flaggedSummary);
     filters.insertAdjacentElement('afterend', panel);
@@ -321,6 +326,7 @@
         typeCoverage.textContent = '';
         masteryMilestone.textContent = '';
         goalStatus.textContent = '';
+        recallQuality.textContent = '';
         question.textContent = '';
         answer.textContent = '';
         answer.hidden = true;
@@ -372,6 +378,18 @@
         refreshTypeCoverage();
         refreshStudyGoal();
         refreshChallengeScore();
+        // Use distinct cards to avoid counting requeued retries as new study.
+        const distinctCards = new Set(deck);
+        const pendingUnique = [...distinctCards]
+            .filter(item => !masteredCards.has(item)).length;
+        const accuracy = typedAttempts
+            ? Math.round(100 * typedCorrect / typedAttempts) : null;
+        recallQuality.textContent = 'PENDÊNCIAS: ' + pendingUnique +
+            ' Pokémon únicos | precisão digitada: ' +
+            (accuracy === null ? 'ainda sem respostas' : accuracy + '%') +
+            ' (' + typedCorrect + '/' + typedAttempts + ')' +
+            ' | dicas: ' + hintsUsed + ' | revisões extras: ' + retryTotal +
+            '. Dados somente desta sessão.';
         // Distinct cards, not spaced retries, determine actual mastery.
         const uniqueTotal = new Set(deck).size;
         const uniqueMastered = [...masteredCards].filter(card =>
@@ -417,6 +435,8 @@
                 'Revisões extras: ' + retryTotal,
                 'Dicas utilizadas: ' + hintsUsed,
                 'Tentativas digitadas: ' + typedAttempts,
+                'Precisão digitada: ' + (typedAttempts ?
+                    Math.round(100 * typedCorrect / typedAttempts) + '%' : 'sem respostas'),
                 'Respostas digitadas corretas: ' + typedCorrect,
                 'Pontos do desafio digitado: ' + challengeScore,
                 'Maior sequência digitada perfeita: ' + bestChallengeCombo,
