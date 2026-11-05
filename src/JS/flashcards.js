@@ -40,6 +40,8 @@
     const retryMissed = makeButton('Revisar não memorizados');
     const retryDifficult = makeButton('Revisar cartões difíceis');
     const retrySkipped = makeButton('Revisar apenas os pulados');
+    const focusWeakest = makeButton('Preparar treino do tipo mais difícil');
+    focusWeakest.hidden = true;
     const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
     const copyStudyReport = makeButton('Copiar relatório da revisão');
@@ -208,6 +210,8 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retrySkipped.hidden = true;
+        focusWeakest.hidden = true;
+        focusWeakest.dataset.type = '';
         stop.hidden = true;
     }
     function show() {
@@ -279,6 +283,9 @@
             retryMissed.hidden = pending.length === 0;
             retryDifficult.hidden = difficultCards.size === 0;
             retrySkipped.hidden = skippedCards.size === 0;
+            focusWeakest.hidden = ranked.length === 0 ||
+                ![...typeFocusSelect.options].some(option => option.value === ranked[0][0]);
+            focusWeakest.dataset.type = ranked[0]?.[0] || '';
             stop.hidden = true;
             return;
         }
@@ -518,6 +525,18 @@
     });
     // A focused replay for skipped cards, independent of cards marked hard.
     // The in-memory set is retained until the user explicitly starts this mode.
+    // A new focused session is always started explicitly by the player.
+    // No filter, capture or quiz record is changed in the background.
+    focusWeakest.addEventListener('click', () => {
+        if (position >= 0 || focusWeakest.hidden) return;
+        const target = focusWeakest.dataset.type;
+        if (![...typeFocusSelect.options].some(option => option.value === target))
+            return;
+        typeFocusSelect.value = target;
+        reset('Foco preparado: ' + target +
+            '. Inicie uma nova rodada para estudar esse tipo.');
+        panel.focus();
+    });
     retrySkipped.addEventListener('click', () => {
         if (position >= 0 || !skippedCards.size) return;
         const skipped = [...skippedCards].filter(card => cards.includes(card));
