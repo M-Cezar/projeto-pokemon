@@ -39,6 +39,7 @@
     const skip = makeButton('Pular e revisar no fim');
     const retryMissed = makeButton('Revisar não memorizados');
     const retryDifficult = makeButton('Revisar cartões difíceis');
+    const retrySkipped = makeButton('Revisar apenas os pulados');
     const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
     const shuffleLabel = document.createElement('label');
@@ -188,6 +189,7 @@
         masteredButton.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
+        retrySkipped.hidden = true;
         stop.hidden = true;
     }
     function show() {
@@ -241,6 +243,7 @@
             masteredButton.hidden = true;
             retryMissed.hidden = pending.length === 0;
             retryDifficult.hidden = difficultCards.size === 0;
+            retrySkipped.hidden = skippedCards.size === 0;
             stop.hidden = true;
             return;
         }
@@ -313,6 +316,7 @@
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
+        retrySkipped.hidden = true;
         stop.hidden = false;
         show();
         panel.focus();
@@ -418,6 +422,7 @@
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
+        retrySkipped.hidden = true;
         stop.hidden = false;
         show();
         panel.focus();
@@ -440,6 +445,36 @@
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
+        retrySkipped.hidden = true;
+        stop.hidden = false;
+        show();
+        panel.focus();
+    });
+    // A focused replay for skipped cards, independent of cards marked hard.
+    // The in-memory set is retained until the user explicitly starts this mode.
+    retrySkipped.addEventListener('click', () => {
+        if (position >= 0 || !skippedCards.size) return;
+        const skipped = [...skippedCards].filter(card => cards.includes(card));
+        if (!skipped.length) return;
+        deck = skipped;
+        position = 0;
+        revealed = false;
+        retryTotal = 0;
+        hintsUsed = 0;
+        currentRecallStreak = 0;
+        bestRecallStreak = 0;
+        retryCounts.clear();
+        skippedCards.clear();
+        difficultCards.clear();
+        masteredCards.clear();
+        identifyMode = modeSelect.value === 'identity';
+        modeSelect.disabled = true;
+        sizeSelect.disabled = true;
+        typeFocusSelect.disabled = true;
+        start.hidden = true;
+        retryMissed.hidden = true;
+        retryDifficult.hidden = true;
+        retrySkipped.hidden = true;
         stop.hidden = false;
         show();
         panel.focus();
