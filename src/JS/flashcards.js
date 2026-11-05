@@ -167,12 +167,27 @@
     const typeCoverage = document.createElement('p');
     typeCoverage.className = 'flashcards-type-coverage';
     typeCoverage.setAttribute('aria-live', 'polite');
+    const goalLabel = document.createElement('label');
+    goalLabel.textContent = 'Meta de memorização nesta rodada: ';
+    const goalSelect = document.createElement('select');
+    for (const [value, label] of [['3', '3 Pokémon'], ['5', '5 Pokémon'],
+        ['10', '10 Pokémon'], ['all', 'Todos os cartões']]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        goalSelect.append(option);
+    }
+    goalSelect.value = '5';
+    goalLabel.append(goalSelect);
+    const goalStatus = document.createElement('p');
+    goalStatus.setAttribute('role', 'status');
+    goalStatus.setAttribute('aria-live', 'polite');
     const progressBar = document.createElement('progress');
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
-        progress, progressBar, masteryMilestone, typeCoverage, weaknessSummary, question,
+        progress, progressBar, goalLabel, goalStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
         shortcutGuide, copyStudyFeedback, previewDeckSummary);
     filters.insertAdjacentElement('afterend', panel);
@@ -226,6 +241,17 @@
                 name + ' ' + count.mastered + '/' + count.total).join(' | ')
             : '';
     }
+    function refreshStudyGoal() {
+        const uniqueTotal = new Set(deck).size;
+        const target = goalSelect.value === 'all' ? uniqueTotal :
+            Math.min(uniqueTotal, Number(goalSelect.value));
+        const mastered = [...masteredCards].filter(card => deck.includes(card)).length;
+        goalStatus.textContent = uniqueTotal === 0 ? '' :
+            'Meta: ' + mastered + '/' + target + ' Pokémon únicos. ' +
+            (mastered >= target ? 'Meta alcançada; continue ou encerre a rodada.' :
+                'Faltam ' + (target - mastered) + ' para atingir a meta.');
+    }
+    goalSelect.addEventListener('change', refreshStudyGoal);
     function reset(message) {
         lastMastery = null;
         undoMastery.hidden = true;
@@ -260,6 +286,7 @@
         weaknessSummary.textContent = '';
         typeCoverage.textContent = '';
         masteryMilestone.textContent = '';
+        goalStatus.textContent = '';
         question.textContent = '';
         answer.textContent = '';
         answer.hidden = true;
@@ -302,6 +329,7 @@
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
         refreshTypeCoverage();
+        refreshStudyGoal();
         // Distinct cards, not spaced retries, determine actual mastery.
         const uniqueTotal = new Set(deck).size;
         const uniqueMastered = [...masteredCards].filter(card =>
