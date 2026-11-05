@@ -184,12 +184,16 @@
     const goalStatus = document.createElement('p');
     goalStatus.setAttribute('role', 'status');
     goalStatus.setAttribute('aria-live', 'polite');
+    const challengeScoreStatus = document.createElement('p');
+    challengeScoreStatus.className = 'flashcards-challenge-score';
+    challengeScoreStatus.setAttribute('role', 'status');
+    challengeScoreStatus.setAttribute('aria-live', 'polite');
     const progressBar = document.createElement('progress');
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
-        progress, progressBar, goalLabel, goalStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
+        progress, progressBar, goalLabel, goalStatus, challengeScoreStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
         shortcutGuide, copyStudyFeedback, previewDeckSummary);
     filters.insertAdjacentElement('afterend', panel);
@@ -210,6 +214,16 @@
     let typedCorrect = 0;
     let typedAttemptsOnCard = 0;
     let typedSolved = false;
+    let challengeScore = 0;
+    let challengeCombo = 0;
+    let bestChallengeCombo = 0;
+    const scoredCards = new Set();
+    function refreshChallengeScore() {
+        challengeScoreStatus.textContent = 'Desafio digitado: ' + challengeScore +
+            ' ponto(s) | sequência perfeita: ' + challengeCombo +
+            ' | recorde nesta rodada: ' + bestChallengeCombo +
+            '. Primeira tentativa sem dica vale mais; sem pontuação persistente.';
+    }
     const normalizePokemonName = value => value.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
         .replace(/[^a-z0-9]/g, '');
@@ -261,6 +275,11 @@
         copyReviewPlan.hidden = true;
         typedAttempts = 0;
         typedCorrect = 0;
+        challengeScore = 0;
+        challengeCombo = 0;
+        bestChallengeCombo = 0;
+        scoredCards.clear();
+        refreshChallengeScore();
         typedAttemptsOnCard = 0;
         typedSolved = false;
         typeInputMode = false;
@@ -333,6 +352,7 @@
         progressBar.value = card ? Math.max(0, position) : deck.length;
         refreshTypeCoverage();
         refreshStudyGoal();
+        refreshChallengeScore();
         // Distinct cards, not spaced retries, determine actual mastery.
         const uniqueTotal = new Set(deck).size;
         const uniqueMastered = [...masteredCards].filter(card =>
@@ -373,6 +393,8 @@
                 'Dicas utilizadas: ' + hintsUsed,
                 'Tentativas digitadas: ' + typedAttempts,
                 'Respostas digitadas corretas: ' + typedCorrect,
+                'Pontos do desafio digitado: ' + challengeScore,
+                'Maior sequência digitada perfeita: ' + bestChallengeCombo,
                 'Desafio sem dicas: ' + (noHintsInput.checked ? 'sim' : 'não'),
                 'Melhor sequência sem ajuda: ' + bestRecallStreak,
                 'Tipos para reforçar: ' + (weakTypes || 'nenhum')
@@ -543,6 +565,10 @@
         retryCounts.clear();
         skippedCards.clear();
         masteredCards.clear();
+        challengeScore = 0;
+        challengeCombo = 0;
+        bestChallengeCombo = 0;
+        scoredCards.clear();
         retryTotal = 0;
         hintsUsed = 0;
         currentRecallStreak = 0;
@@ -602,6 +628,16 @@
         typedAttempts++;
         typedAttemptsOnCard++;
         if (correct) {
+            // Only a verified typed answer scores. A repeated appearance of
+            // the same Pokémon cannot inflate the in-session score.
+            const perfect = typedAttemptsOnCard === 1 && hintText.hidden;
+            if (!scoredCards.has(card)) {
+                scoredCards.add(card);
+                challengeCombo = perfect ? challengeCombo + 1 : 0;
+                bestChallengeCombo = Math.max(bestChallengeCombo, challengeCombo);
+                challengeScore += perfect ? 100 + Math.min(5, challengeCombo - 1) * 20 : 50;
+            }
+            refreshChallengeScore();
             typedCorrect++;
             typedSolved = true;
             typedFeedback.textContent = 'Resposta correta. Confirme a memorização.';
@@ -610,6 +646,8 @@
         }
         difficultCards.add(deck[position]);
         currentRecallStreak = 0;
+        challengeCombo = 0;
+        refreshChallengeScore();
         typedFeedback.textContent = typedAttemptsOnCard >= 2
             ? 'Duas tentativas utilizadas. Revele a resposta para continuar.'
             : 'Resposta diferente. Você tem mais uma tentativa.';
@@ -654,6 +692,8 @@
         currentRecallStreak = 0;
         skip.hidden = skippedCards.has(card);
         hintsUsed += 1;
+        challengeCombo = 0;
+        refreshChallengeScore();
         progress.textContent += ' | Dica utilizada';
     });
     skip.addEventListener('click', () => {
@@ -664,6 +704,8 @@
         skippedCards.add(card);
         difficultCards.add(card);
         currentRecallStreak = 0;
+        challengeCombo = 0;
+        refreshChallengeScore();
         deck.push(card);
         position += 1;
         show();
