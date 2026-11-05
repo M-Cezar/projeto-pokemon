@@ -42,6 +42,12 @@
     const retrySkipped = makeButton('Revisar apenas os pulados');
     const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
+    const copyStudyReport = makeButton('Copiar relatório da revisão');
+    copyStudyReport.hidden = true;
+    const copyStudyFeedback = document.createElement('p');
+    copyStudyFeedback.setAttribute('role', 'status');
+    copyStudyFeedback.setAttribute('aria-live', 'polite');
+    controls.insertAdjacentElement('afterend', copyStudyFeedback);
     const shuffleLabel = document.createElement('label');
     const hintText = document.createElement('p');
     hintText.className = 'flashcards-hint';
@@ -125,6 +131,7 @@
     let currentRecallStreak = 0;
     let bestRecallStreak = 0;
     let pauseSnapshot = null;
+    let studyReport = '';
     const retryCounts = new Map();
     const skippedCards = new Set();
     const difficultCards = new Set();
@@ -153,6 +160,9 @@
             : '';
     }
     function reset(message) {
+        studyReport = '';
+        copyStudyReport.hidden = true;
+        copyStudyFeedback.textContent = '';
         pauseSnapshot = null;
         pause.hidden = true;
         pause.textContent = 'Pausar revisão';
@@ -220,6 +230,21 @@
                 : 'Nenhum tipo marcado como difícil nesta rodada.';
             const pending = [...new Set(deck)].filter(item => !masteredCards.has(item));
             position = -1;
+            const distinct = new Set(deck).size;
+            const weakTypes = ranked.map(([name, count]) => name + ': ' + count).join(', ');
+            studyReport = [
+                'Pokédex | Relatório de estudo',
+                'Cartões distintos: ' + distinct,
+                'Memorizados: ' + masteredCards.size,
+                'Pendentes: ' + pending.length,
+                'Pulados: ' + skippedCards.size,
+                'Difíceis: ' + difficultCards.size,
+                'Revisões extras: ' + retryTotal,
+                'Dicas utilizadas: ' + hintsUsed,
+                'Melhor sequência sem ajuda: ' + bestRecallStreak,
+                'Tipos para reforçar: ' + (weakTypes || 'nenhum')
+            ].join('\n');
+            copyStudyReport.hidden = false;
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
                 ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
                 retryTotal + ' revisões extras realizadas; ' +
@@ -537,6 +562,19 @@
         actions.forEach(button => { button.hidden = true; });
         pause.textContent = 'Retomar revisão';
         panel.focus();
+    });
+    copyStudyReport.addEventListener('click', async () => {
+        if (!studyReport) return;
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+            copyStudyFeedback.textContent = 'Cópia indisponível neste navegador.';
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(studyReport);
+            copyStudyFeedback.textContent = 'Relatório de estudo copiado.';
+        } catch {
+            copyStudyFeedback.textContent = 'O navegador não autorizou a cópia.';
+        }
     });
     stop.addEventListener('click', () => reset('Revisão encerrada sem alterar seu progresso.'));
     for (const id of ['buscar-pokemon', 'filtrar-tipo']) {
