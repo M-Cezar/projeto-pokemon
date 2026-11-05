@@ -130,6 +130,19 @@
         modeSelect.append(option);
     }
     modeLabel.append(modeSelect);
+    const deckOrderLabel = document.createElement('label');
+    deckOrderLabel.textContent = ' Sequência dos tipos: ';
+    const deckOrderSelect = document.createElement('select');
+    deckOrderSelect.setAttribute('aria-label', 'Organização dos tipos na revisão');
+    for (const [value,label] of [
+        ['original','Ordem dos filtros'],
+        ['alternate','Alternar tipos consecutivos']
+    ]) {
+        const option = document.createElement('option');
+        option.value = value; option.textContent = label;
+        deckOrderSelect.append(option);
+    }
+    deckOrderLabel.append(deckOrderSelect);
     const sizeLabel = document.createElement('label');
     sizeLabel.textContent = ' Cartões por rodada: ';
     const sizeSelect = document.createElement('select');
@@ -207,7 +220,7 @@
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
-    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
+    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, deckOrderLabel, noHintsLabel, typeFocusLabel,
         progress, progressBar, recallQuality, goalLabel, goalStatus, challengeScoreStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
         shortcutGuide, copyStudyFeedback, previewDeckSummary, flaggedSummary);
@@ -340,6 +353,7 @@
         previewDeckButton.hidden = false;
         modeSelect.disabled = false;
         sizeSelect.disabled = false;
+        deckOrderSelect.disabled = false;
         typeFocusSelect.disabled = false;
         noHintsInput.disabled = false;
         progressBar.max = 1;
@@ -627,6 +641,7 @@
         typeInputMode = modeSelect.value === 'types';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
+        deckOrderSelect.disabled = true;
         typeFocusSelect.disabled = true;
         noHintsInput.disabled = true;
         const selectedType = typeFocusSelect.value;
@@ -641,6 +656,31 @@
                 const other = Math.floor(Math.random() * (index + 1));
                 [deck[index], deck[other]] = [deck[other], deck[index]];
             }
+        }
+        // Greedy alternation reduces consecutive type overlap without
+        // changing Pokémon, answers, captures or the daily fixed challenge.
+        if (deckOrderSelect.value === 'alternate' && !dailyChallenge) {
+            const remaining = [...deck];
+            const ordered = [];
+            let lastTypes = new Set();
+            while (remaining.length) {
+                let bestIndex = 0, bestOverlap = Infinity;
+                for (let i = 0; i < remaining.length; i++) {
+                    const types = [...remaining[i].querySelectorAll('.tipos .tipo')]
+                        .map(node => node.textContent.trim());
+                    const overlap = types.filter(type => lastTypes.has(type)).length;
+                    if (overlap < bestOverlap) {
+                        bestOverlap = overlap;
+                        bestIndex = i;
+                        if (overlap === 0) break;
+                    }
+                }
+                const [chosen] = remaining.splice(bestIndex, 1);
+                ordered.push(chosen);
+                lastTypes = new Set([...chosen.querySelectorAll('.tipos .tipo')]
+                    .map(node => node.textContent.trim()));
+            }
+            deck = ordered;
         }
         if (!deck.length) return reset('Nenhum Pokémon disponível para o tipo escolhido. Ajuste o foco ou os filtros.');
         const limit = dailyChallenge || sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
