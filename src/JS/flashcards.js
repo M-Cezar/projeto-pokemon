@@ -72,7 +72,8 @@
     sizeSelect.setAttribute('aria-label', 'Quantidade de cartões por rodada');
     for (const [value, label] of [
         ['all', 'Todos os visíveis'], ['5', '5 cartões'],
-        ['10', '10 cartões'], ['20', '20 cartões']
+        ['10', '10 cartões'], ['20', '20 cartões'],
+        ['daily5', 'Desafio diário: 5 Pokémon']
     ]) {
         const option = document.createElement('option');
         option.value = value;
@@ -286,6 +287,32 @@
         spacedRetry.hidden = true;
         masteredButton.hidden = true;
     }
+    // A rotating daily selection is stable across reloads on the same
+    // local calendar day. It uses visible Pokédex cards only, with no storage.
+    function dailyStudyDeck(visibleCards) {
+        const day = new Date();
+        const dateKey = [day.getFullYear(), day.getMonth() + 1,
+            day.getDate()].join('-');
+        let seed = 2166136261;
+        for (const char of dateKey) {
+            seed ^= char.charCodeAt(0);
+            seed = Math.imul(seed, 16777619) >>> 0;
+        }
+        const ordered = [...visibleCards].sort((a, b) => {
+            const nameA = a.querySelector('.informacoes span')?.textContent?.trim() || '';
+            const nameB = b.querySelector('.informacoes span')?.textContent?.trim() || '';
+            return nameA.localeCompare(nameB, 'pt-BR');
+        });
+        // Deterministic shuffle without changing the site's card order.
+        for (let index = ordered.length - 1; index > 0; index--) {
+            seed ^= seed << 13;
+            seed ^= seed >>> 17;
+            seed ^= seed << 5;
+            const other = (seed >>> 0) % (index + 1);
+            [ordered[index], ordered[other]] = [ordered[other], ordered[index]];
+        }
+        return ordered.slice(0, 5);
+    }
     start.addEventListener('click', () => {
         retryCounts.clear();
         skippedCards.clear();
@@ -302,7 +329,9 @@
         deck = cards.filter(card => !card.hidden &&
             (!selectedType || [...card.querySelectorAll('.tipos .tipo')]
                 .some(type => type.textContent.trim() === selectedType)));
-        if (shuffleInput.checked) {
+        const dailyChallenge = sizeSelect.value === 'daily5';
+        if (dailyChallenge) deck = dailyStudyDeck(deck);
+        if (shuffleInput.checked && !dailyChallenge) {
             // Fisher-Yates shuffles only the in-memory study order.
             for (let index = deck.length - 1; index > 0; index--) {
                 const other = Math.floor(Math.random() * (index + 1));
@@ -310,7 +339,7 @@
             }
         }
         if (!deck.length) return reset('Nenhum Pokémon disponível para o tipo escolhido. Ajuste o foco ou os filtros.');
-        const limit = sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
+        const limit = dailyChallenge || sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
         deck = deck.slice(0, Math.min(deck.length, Number.isSafeInteger(limit) && limit > 0 ? limit : deck.length));
         position = 0;
         start.hidden = true;
