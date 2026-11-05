@@ -15,6 +15,10 @@
     const progress = document.createElement('p');
     progress.setAttribute('role', 'status');
     progress.setAttribute('aria-live', 'polite');
+    const masteryMilestone = document.createElement('p');
+    masteryMilestone.setAttribute('role', 'status');
+    masteryMilestone.setAttribute('aria-live', 'polite');
+    masteryMilestone.className = 'flashcards-mastery-milestone';
     const question = document.createElement('p');
     question.className = 'flashcards-question';
     const answer = document.createElement('p');
@@ -139,7 +143,7 @@
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
-        progress, progressBar, typeCoverage, weaknessSummary, question,
+        progress, progressBar, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls, copyStudyFeedback);
     filters.insertAdjacentElement('afterend', panel);
 
@@ -216,6 +220,7 @@
         progress.textContent = message;
         weaknessSummary.textContent = '';
         typeCoverage.textContent = '';
+        masteryMilestone.textContent = '';
         question.textContent = '';
         answer.textContent = '';
         answer.hidden = true;
@@ -254,6 +259,18 @@
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
         refreshTypeCoverage();
+        // Distinct cards, not spaced retries, determine actual mastery.
+        const uniqueTotal = new Set(deck).size;
+        const uniqueMastered = [...masteredCards].filter(card =>
+            deck.includes(card)).length;
+        const nextMilestone = Math.min(uniqueTotal,
+            Math.ceil((uniqueMastered + 1) / 5) * 5);
+        masteryMilestone.textContent = uniqueTotal
+            ? 'Domínio único: ' + uniqueMastered + '/' + uniqueTotal +
+              ' Pokémon. ' + (uniqueMastered >= uniqueTotal
+                  ? 'Meta concluída.'
+                  : 'Próximo marco: ' + nextMilestone + ' memorizados.')
+            : '';
         if (!card) {
             const typeCounts = new Map();
             for (const difficult of difficultCards) {
