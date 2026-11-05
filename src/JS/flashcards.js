@@ -47,6 +47,12 @@
     const again = makeButton('Revisar este cartão depois');
     const spacedRetry = makeButton('Rever em alguns cartões');
     const skip = makeButton('Pular e revisar no fim');
+    const flagCurrent = makeButton('Marcar para revisão especial');
+    flagCurrent.hidden = true;
+    const retryFlagged = makeButton('Revisar cartões marcados');
+    retryFlagged.hidden = true;
+    const flaggedSummary = document.createElement('p');
+    flaggedSummary.setAttribute('aria-live', 'polite');
     const retryMissed = makeButton('Revisar não memorizados');
     const retryDifficult = makeButton('Revisar cartões difíceis');
     const retryTopFive = makeButton('Revisar até 5 cartões mais difíceis');
@@ -197,7 +203,7 @@
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
         progress, progressBar, goalLabel, goalStatus, challengeScoreStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
-        shortcutGuide, copyStudyFeedback, previewDeckSummary);
+        shortcutGuide, copyStudyFeedback, previewDeckSummary, flaggedSummary);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -220,6 +226,7 @@
     let challengeCombo = 0;
     let bestChallengeCombo = 0;
     const scoredCards = new Set();
+    const flaggedCards = new Set();
     function refreshChallengeScore() {
         challengeScoreStatus.textContent = 'Desafio digitado: ' + challengeScore +
             ' ponto(s) | sequência perfeita: ' + challengeCombo +
@@ -281,6 +288,10 @@
         challengeCombo = 0;
         bestChallengeCombo = 0;
         scoredCards.clear();
+        flaggedCards.clear();
+        flaggedSummary.textContent = '';
+        flagCurrent.hidden = true;
+        retryFlagged.hidden = true;
         refreshChallengeScore();
         typedAttemptsOnCard = 0;
         typedSolved = false;
@@ -350,6 +361,11 @@
         const card = deck[position];
         if (card) copyReviewPlan.hidden = true;
         undoMastery.hidden = !card || !lastMastery;
+        flagCurrent.hidden = !card;
+        if (card) flagCurrent.textContent = flaggedCards.has(card)
+            ? 'Remover marcação especial' : 'Marcar para revisão especial';
+        flaggedSummary.textContent = flaggedCards.size
+            ? flaggedCards.size+' Pokémon marcados para revisão especial.' : '';
         pause.hidden = !card;
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
@@ -385,6 +401,8 @@
             const recurring = [...new Set(deck)].filter(item =>
                 (retryCounts.get(item) || 0) >= 2);
             retryRecurring.hidden = recurring.length === 0;
+            retryFlagged.hidden = flaggedCards.size === 0;
+            flagCurrent.hidden = true;
             position = -1;
             const distinct = new Set(deck).size;
             const weakTypes = ranked.map(([name, count]) => name + ': ' + count).join(', ');
@@ -395,6 +413,7 @@
                 'Pendentes: ' + pending.length,
                 'Pulados: ' + skippedCards.size,
                 'Difíceis: ' + difficultCards.size,
+                'Marcados manualmente: ' + flaggedCards.size,
                 'Revisões extras: ' + retryTotal,
                 'Dicas utilizadas: ' + hintsUsed,
                 'Tentativas digitadas: ' + typedAttempts,
@@ -716,6 +735,38 @@
         deck.push(card);
         position += 1;
         show();
+    });
+    flagCurrent.addEventListener('click', () => {
+        if (position < 0 || pauseSnapshot || !deck[position]) return;
+        const card = deck[position];
+        if (flaggedCards.has(card)) flaggedCards.delete(card);
+        else flaggedCards.add(card);
+        flagCurrent.textContent = flaggedCards.has(card)
+            ? 'Remover marcação especial' : 'Marcar para revisão especial';
+        flaggedSummary.textContent = flaggedCards.size
+            ? flaggedCards.size+' Pokémon marcados para revisão especial.' : '';
+    });
+    retryFlagged.addEventListener('click', () => {
+        if (position >= 0 || !flaggedCards.size) return;
+        deck = [...flaggedCards].slice(0,20);
+        position = 0;
+        retryTotal = 0;
+        hintsUsed = 0;
+        retryCounts.clear();
+        skippedCards.clear();
+        difficultCards.clear();
+        masteredCards.clear();
+        flaggedCards.clear();
+        lastMastery = null;
+        modeSelect.disabled = true;
+        sizeSelect.disabled = true;
+        typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
+        start.hidden = true;
+        retryFlagged.hidden = true;
+        stop.hidden = false;
+        show();
+        panel.focus();
     });
     reveal.addEventListener('click', () => {
         if (position < 0) return;
