@@ -67,6 +67,8 @@
     const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
     const copyStudyReport = makeButton('Copiar relatório da revisão');
+    const copyReviewPlan = makeButton('Copiar plano de reforço');
+    copyReviewPlan.hidden = true;
     copyStudyReport.hidden = true;
     const copyStudyFeedback = document.createElement('p');
     copyStudyFeedback.setAttribute('role', 'status');
@@ -226,6 +228,7 @@
         lastMastery = null;
         undoMastery.hidden = true;
         studyReport = '';
+        copyReviewPlan.hidden = true;
         typedAttempts = 0;
         typedCorrect = 0;
         typedAttemptsOnCard = 0;
@@ -342,6 +345,7 @@
             typedAnswerInput.hidden = true;
             checkTypedAnswer.hidden = true;
             copyStudyReport.hidden = false;
+            copyReviewPlan.hidden = pending.length === 0 && difficultCards.size === 0;
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
                 ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
                 retryTotal + ' revisões extras realizadas; ' +
@@ -808,6 +812,32 @@
         actions.forEach(button => { button.hidden = true; });
         pause.textContent = 'Retomar revisão';
         panel.focus();
+    });
+    copyReviewPlan.addEventListener('click', async () => {
+        if (position >= 0 || copyReviewPlan.hidden) return;
+        const pending = [...new Set(deck)].filter(card => !masteredCards.has(card));
+        const priority = [...new Set([...difficultCards, ...skippedCards, ...pending])];
+        const lines = ['Pokédex | Plano de reforço manual',
+            'Cartões prioritários: ' + priority.length,
+            'Difíceis: ' + difficultCards.size + ' | Pulados: ' + skippedCards.size];
+        for (const card of priority) {
+            const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
+            const types = [...card.querySelectorAll('.tipos .tipo')]
+                .map(node => node.textContent.trim()).filter(Boolean).join(', ');
+            const reason = difficultCards.has(card) ? 'difícil' :
+                skippedCards.has(card) ? 'pulado' : 'pendente';
+            lines.push('- ' + name + ' | ' + (types || 'sem tipo') + ' | ' + reason);
+        }
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+            copyStudyFeedback.textContent = 'Cópia indisponível neste navegador.';
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(lines.join('\\n'));
+            copyStudyFeedback.textContent = 'Plano de reforço copiado, sem alterar o progresso.';
+        } catch {
+            copyStudyFeedback.textContent = 'O navegador não autorizou a cópia.';
+        }
     });
     copyStudyReport.addEventListener('click', async () => {
         if (!studyReport) return;
