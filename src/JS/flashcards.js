@@ -166,7 +166,7 @@
     const normalizePokemonName = value => value.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
         .replace(/[^a-z0-9]/g, '');
-    const normalizePokemonTypes = value => value.split(/[,;/]+/)
+    const normalizePokemonTypes = value => value.split(/[,;]+/)
         .map(part => normalizePokemonName(part.trim())).filter(Boolean)
         .sort().join('|');
     const retryCounts = new Map();
