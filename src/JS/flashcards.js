@@ -86,6 +86,13 @@
         sizeSelect.append(option);
     }
     sizeLabel.append(sizeSelect);
+    // Challenge mode disables clues for the whole active round.
+    // It changes neither captures nor stored records.
+    const noHintsLabel = document.createElement('label');
+    const noHintsInput = document.createElement('input');
+    noHintsInput.type = 'checkbox';
+    noHintsLabel.append(noHintsInput,
+        document.createTextNode(' Desafio sem dicas nesta rodada'));
     // Optional type-focused study is derived from the existing Pokédex cards.
     // It never changes the site filters, captures or stored quiz records.
     const typeFocusLabel = document.createElement('label');
@@ -117,7 +124,7 @@
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
-    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, typeFocusLabel,
+    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
         progress, progressBar, typeCoverage, weaknessSummary, question, hintText, answer, controls, copyStudyFeedback);
     filters.insertAdjacentElement('afterend', panel);
 
@@ -190,6 +197,7 @@
         modeSelect.disabled = false;
         sizeSelect.disabled = false;
         typeFocusSelect.disabled = false;
+        noHintsInput.disabled = false;
         progressBar.max = 1;
         progressBar.value = 0;
         reveal.hidden = true;
@@ -240,6 +248,7 @@
                 'Difíceis: ' + difficultCards.size,
                 'Revisões extras: ' + retryTotal,
                 'Dicas utilizadas: ' + hintsUsed,
+                'Desafio sem dicas: ' + (noHintsInput.checked ? 'sim' : 'não'),
                 'Melhor sequência sem ajuda: ' + bestRecallStreak,
                 'Tipos para reforçar: ' + (weakTypes || 'nenhum')
             ].join('\n');
@@ -261,6 +270,7 @@
             modeSelect.disabled = false;
             sizeSelect.disabled = false;
         typeFocusSelect.disabled = false;
+        noHintsInput.disabled = false;
             reveal.hidden = true;
             next.hidden = true;
             again.hidden = true;
@@ -303,7 +313,7 @@
         answer.hidden = true;
         hintText.textContent = '';
         hintText.hidden = true;
-        hintButton.hidden = false;
+        hintButton.hidden = noHintsInput.checked;
         skip.hidden = skippedCards.has(card);
         reveal.hidden = false;
         next.hidden = true;
@@ -349,6 +359,7 @@
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
         const selectedType = typeFocusSelect.value;
         deck = cards.filter(card => !card.hidden &&
             (!selectedType || [...card.querySelectorAll('.tipos .tipo')]
@@ -375,7 +386,7 @@
         panel.focus();
     });
     hintButton.addEventListener('click', () => {
-        if (position < 0 || revealed || hintButton.hidden) return;
+        if (position < 0 || revealed || hintButton.hidden || noHintsInput.checked) return;
         const card = deck[position];
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const types = [...card.querySelectorAll('.tipos .tipo')]
@@ -472,6 +483,7 @@
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
@@ -495,6 +507,7 @@
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
@@ -524,6 +537,7 @@
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
         start.hidden = true;
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
