@@ -577,6 +577,18 @@
             ? 'Duas tentativas utilizadas. Revele a resposta para continuar.'
             : 'Resposta diferente. Você tem mais uma tentativa.';
         if (typedAttemptsOnCard >= 2) {
+            // Two incorrect recalls schedule one extra appearance, bounded by
+            // the same retry quota as the manual spaced-review controls.
+            const card = deck[position];
+            const retries = retryCounts.get(card) || 0;
+            if (retries < 2 && !deck.slice(position + 1).includes(card)) {
+                retryCounts.set(card, retries + 1);
+                const insertion = Math.min(deck.length, position + 3);
+                deck.splice(insertion, 0, card);
+                retryTotal += 1;
+                typedFeedback.textContent =
+                    'Duas tentativas incorretas. Revisão espaçada programada após dois cartões.';
+            }
             checkTypedAnswer.hidden = true;
             typedAnswerInput.hidden = true;
         }
