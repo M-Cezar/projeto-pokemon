@@ -110,7 +110,7 @@
         ['traits', 'Lembrar tipos e características'],
         ['identity', 'Identificar o Pokémon pela descrição'],
         ['types', 'Digitar os tipos do Pokémon'],
-        ['mixed', 'Treino misto: alternar perguntas']
+        ['mixed', 'Treino misto: características, nome e tipos digitados']
     ]) {
         const option = document.createElement('option');
         option.value = value;
@@ -411,11 +411,14 @@
             return;
         }
         weaknessSummary.textContent = '';
-        // Mixed sessions alternate prompt styles per turn, including retries.
-        // The selection never changes captures, records or saved game data.
-        if (modeSelect.value === 'mixed')
-            identifyMode = position % 2 === 1;
-        typeInputMode = modeSelect.value === 'types';
+        // Mixed sessions cycle through three playable challenges:
+        // recall traits, identify by description, then type every Pokémon type.
+        // Retries use the same deterministic position cycle, never stored data.
+        const mixedStep = position % 3;
+        identifyMode = modeSelect.value === 'identity' ||
+            (modeSelect.value === 'mixed' && mixedStep === 1);
+        typeInputMode = modeSelect.value === 'types' ||
+            (modeSelect.value === 'mixed' && mixedStep === 2);
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
@@ -426,7 +429,8 @@
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
             ' | Pokémon ainda em estudo: ' + distinctRemaining +
             (modeSelect.value === 'mixed' ? (identifyMode
-                ? ' | Identificação' : ' | Características') :
+                ? ' | Identificação' : typeInputMode
+                    ? ' | Tipos digitados' : ' | Características') :
                 typeInputMode ? ' | Tipos digitados' : '') +
             ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal +
             ' | Dicas: ' + hintsUsed + ' | Sequência sem ajuda: ' + currentRecallStreak;
