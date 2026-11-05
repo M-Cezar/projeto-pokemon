@@ -59,6 +59,8 @@
     const retryRecurring = makeButton('Revisar erros recorrentes (até 8)');
     retryRecurring.hidden = true;
     retryTopFive.hidden = true;
+    const retryBalanced = makeButton('Reforço combinado: difíceis, pulados e marcados');
+    retryBalanced.hidden = true;
     const retrySkipped = makeButton('Revisar apenas os pulados');
     const focusWeakest = makeButton('Preparar treino do tipo mais difícil');
     focusWeakest.hidden = true;
@@ -351,6 +353,7 @@
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
         retryRecurring.hidden = true;
+        retryBalanced.hidden = true;
         retrySkipped.hidden = true;
         focusWeakest.hidden = true;
         focusWeakest.dataset.type = '';
@@ -366,6 +369,7 @@
                masteredCards.has(deck[position])) position += 1;
         const card = deck[position];
         if (card) copyReviewPlan.hidden = true;
+        if (card) retryBalanced.hidden = true;
         undoMastery.hidden = !card || !lastMastery;
         flagCurrent.hidden = !card;
         if (card) flagCurrent.textContent = flaggedCards.has(card)
@@ -420,6 +424,7 @@
                 (retryCounts.get(item) || 0) >= 2);
             retryRecurring.hidden = recurring.length === 0;
             retryFlagged.hidden = flaggedCards.size === 0;
+            retryBalanced.hidden = !difficultCards.size && !skippedCards.size && !flaggedCards.size;
             flagCurrent.hidden = true;
             position = -1;
             const distinct = new Set(deck).size;
@@ -963,6 +968,47 @@
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
         retryRecurring.hidden = true;
+        retrySkipped.hidden = true;
+        stop.hidden = false;
+        show();
+        panel.focus();
+    });
+
+    // Explicit, bounded mixed recovery of mistakes and manually flagged cards.
+    retryBalanced.addEventListener('click', () => {
+        if (position >= 0 || retryBalanced.hidden) return;
+        const candidates = [...new Set([...difficultCards, ...skippedCards, ...flaggedCards])]
+            .filter(card => cards.includes(card))
+            .sort((a,b) => (retryCounts.get(b) || 0) - (retryCounts.get(a) || 0) ||
+                Number(flaggedCards.has(b)) - Number(flaggedCards.has(a)) ||
+                (a.querySelector('.informacoes span')?.textContent || '')
+                    .localeCompare(b.querySelector('.informacoes span')?.textContent || '', 'pt-BR'))
+            .slice(0, 12);
+        if (!candidates.length) return;
+        deck = candidates;
+        position = 0;
+        retryTotal = 0;
+        hintsUsed = 0;
+        currentRecallStreak = 0;
+        bestRecallStreak = 0;
+        retryCounts.clear();
+        skippedCards.clear();
+        difficultCards.clear();
+        flaggedCards.clear();
+        masteredCards.clear();
+        lastMastery = null;
+        identifyMode = modeSelect.value === 'identity';
+        typeInputMode = modeSelect.value === 'types';
+        modeSelect.disabled = true;
+        sizeSelect.disabled = true;
+        typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
+        start.hidden = true;
+        retryMissed.hidden = true;
+        retryDifficult.hidden = true;
+        retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
+        retryBalanced.hidden = true;
         retrySkipped.hidden = true;
         stop.hidden = false;
         show();
