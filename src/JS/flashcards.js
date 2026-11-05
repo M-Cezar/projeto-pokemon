@@ -66,6 +66,8 @@
     typedAnswerInput.hidden = true;
     const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
+    const restartRound = makeButton('Recomeçar com os filtros atuais');
+    restartRound.hidden = true;
     const copyStudyReport = makeButton('Copiar relatório da revisão');
     const copyReviewPlan = makeButton('Copiar plano de reforço');
     copyReviewPlan.hidden = true;
@@ -283,6 +285,7 @@
         retrySkipped.hidden = true;
         focusWeakest.hidden = true;
         focusWeakest.dataset.type = '';
+        restartRound.hidden = true;
         stop.hidden = true;
     }
     function show() {
@@ -491,6 +494,13 @@
               '. Nenhum progresso foi alterado.'
             : 'Nenhum cartão disponível com os filtros atuais.';
     });
+    restartRound.addEventListener('click', () => {
+        if (restartRound.hidden) return;
+        // Rebuild a new in-memory deck using the current filters. No stored
+        // achievements, network calls or hidden automatic answers are changed.
+        reset('Nova rodada solicitada. Preparando os cartões filtrados.');
+        start.click();
+    });
     start.addEventListener('click', () => {
         lastMastery = null;
         undoMastery.hidden = true;
@@ -530,6 +540,7 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retrySkipped.hidden = true;
+        restartRound.hidden = false;
         stop.hidden = false;
         show();
         panel.focus();
