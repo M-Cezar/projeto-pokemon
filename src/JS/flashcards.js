@@ -65,6 +65,24 @@
     const copyStudyFeedback = document.createElement('p');
     copyStudyFeedback.setAttribute('role', 'status');
     copyStudyFeedback.setAttribute('aria-live', 'polite');
+    // On-demand keyboard guide is available before and during a session.
+    const shortcutGuideButton = makeButton('Mostrar atalhos de teclado');
+    shortcutGuideButton.setAttribute('aria-expanded', 'false');
+    const shortcutGuide = document.createElement('p');
+    shortcutGuide.id = 'flashcards-keyboard-help';
+    shortcutGuide.hidden = true;
+    shortcutGuide.textContent =
+        'P: pausar ou retomar. Espaço: revelar com foco no painel. ' +
+        'S: pular. H: dica. Setas: avançar ou revisar. ' +
+        'M: memorizei. T: revisão espaçada. R: repetir.';
+    shortcutGuideButton.setAttribute('aria-controls', shortcutGuide.id);
+    shortcutGuideButton.addEventListener('click', () => {
+        shortcutGuide.hidden = !shortcutGuide.hidden;
+        shortcutGuideButton.textContent = shortcutGuide.hidden ?
+            'Mostrar atalhos de teclado' : 'Ocultar atalhos de teclado';
+        shortcutGuideButton.setAttribute('aria-expanded',
+            String(!shortcutGuide.hidden));
+    });
     const shuffleLabel = document.createElement('label');
     const hintText = document.createElement('p');
     hintText.className = 'flashcards-hint';
@@ -145,7 +163,8 @@
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
         progress, progressBar, masteryMilestone, typeCoverage, weaknessSummary, question,
-        typedAnswerInput, typedFeedback, hintText, answer, controls, copyStudyFeedback);
+        typedAnswerInput, typedFeedback, hintText, answer, controls,
+        shortcutGuide, copyStudyFeedback);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -739,7 +758,8 @@
     }
     panel.addEventListener('keydown', event => {
         if (position < 0 || event.target instanceof HTMLInputElement ||
-            event.target instanceof HTMLSelectElement) return;
+            event.target instanceof HTMLSelectElement ||
+            event.target instanceof HTMLButtonElement) return;
         if (event.key.toLowerCase() === 'p') {
             event.preventDefault();
             pause.click();
