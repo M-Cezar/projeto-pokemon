@@ -34,6 +34,10 @@
         return button;
     };
     const start = makeButton('Iniciar revisão');
+    const previewDeckButton = makeButton('Prévia da próxima rodada');
+    const previewDeckSummary = document.createElement('p');
+    previewDeckSummary.setAttribute('role', 'status');
+    previewDeckSummary.setAttribute('aria-live', 'polite');
     const reveal = makeButton('Revelar resposta');
     const hintButton = makeButton('Mostrar dica');
     const next = makeButton('Próximo cartão');
@@ -164,7 +168,7 @@
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
         progress, progressBar, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
-        shortcutGuide, copyStudyFeedback);
+        shortcutGuide, copyStudyFeedback, previewDeckSummary);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -254,6 +258,7 @@
         hintButton.hidden = true;
         skip.hidden = true;
         start.hidden = false;
+        previewDeckButton.hidden = false;
         modeSelect.disabled = false;
         sizeSelect.disabled = false;
         typeFocusSelect.disabled = false;
@@ -445,6 +450,36 @@
         }
         return ordered.slice(0, 5);
     }
+    previewDeckButton.addEventListener('click', () => {
+        if (position >= 0) return;
+        const selectedType = typeFocusSelect.value;
+        let available = cards.filter(card => !card.hidden &&
+            (!selectedType || [...card.querySelectorAll('.tipos .tipo')]
+                .some(type => type.textContent.trim() === selectedType)));
+        const daily = sizeSelect.value === 'daily5';
+        if (daily) available = dailyStudyDeck(available);
+        const count = daily || sizeSelect.value === 'all'
+            ? available.length : Math.min(available.length, Number(sizeSelect.value));
+        const planned = available.slice(0, count);
+        const byType = new Map();
+        for (const card of planned) {
+            for (const type of new Set([...card.querySelectorAll('.tipos .tipo')]
+                .map(node => node.textContent.trim()).filter(Boolean))) {
+                byType.set(type, (byType.get(type) || 0) + 1);
+            }
+        }
+        const topTypes = [...byType].sort((a, b) =>
+            b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')).slice(0, 3);
+        previewDeckSummary.textContent = planned.length
+            ? 'Próxima rodada: ' + planned.length + ' Pokémon; ' +
+              (daily ? 'desafio diário; ' : '') +
+              (shuffleInput.checked && !daily ? 'ordem embaralhada ao iniciar; ' : '') +
+              'tipos mais presentes: ' +
+              (topTypes.map(([type, total]) => type + ' (' + total + ')')
+                  .join(', ') || 'não informados') +
+              '. Nenhum progresso foi alterado.'
+            : 'Nenhum cartão disponível com os filtros atuais.';
+    });
     start.addEventListener('click', () => {
         retryCounts.clear();
         skippedCards.clear();
@@ -477,6 +512,8 @@
         deck = deck.slice(0, Math.min(deck.length, Number.isSafeInteger(limit) && limit > 0 ? limit : deck.length));
         position = 0;
         start.hidden = true;
+        previewDeckButton.hidden = true;
+        previewDeckSummary.textContent = '';
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retrySkipped.hidden = true;
