@@ -293,6 +293,7 @@
         while (position >= 0 && position < deck.length &&
                masteredCards.has(deck[position])) position += 1;
         const card = deck[position];
+        if (card) copyReviewPlan.hidden = true;
         undoMastery.hidden = !card || !lastMastery;
         pause.hidden = !card;
         progressBar.max = Math.max(1, deck.length);
@@ -833,7 +834,7 @@
             return;
         }
         try {
-            await navigator.clipboard.writeText(lines.join('\\n'));
+            await navigator.clipboard.writeText(lines.join('\n'));
             copyStudyFeedback.textContent = 'Plano de reforço copiado, sem alterar o progresso.';
         } catch {
             copyStudyFeedback.textContent = 'O navegador não autorizou a cópia.';
