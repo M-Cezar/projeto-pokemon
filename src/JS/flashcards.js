@@ -81,6 +81,7 @@
     for (const [value, label] of [
         ['traits', 'Lembrar tipos e características'],
         ['identity', 'Identificar o Pokémon pela descrição'],
+        ['types', 'Digitar os tipos do Pokémon'],
         ['mixed', 'Treino misto: alternar perguntas']
     ]) {
         const option = document.createElement('option');
@@ -151,6 +152,7 @@
     let position = -1;
     let revealed = false;
     let identifyMode = false;
+    let typeInputMode = false;
     let retryTotal = 0;
     let hintsUsed = 0;
     let currentRecallStreak = 0;
@@ -164,6 +166,9 @@
     const normalizePokemonName = value => value.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
         .replace(/[^a-z0-9]/g, '');
+    const normalizePokemonTypes = value => value.split(/[,;/]+/)
+        .map(part => normalizePokemonName(part.trim())).filter(Boolean)
+        .sort().join('|');
     const retryCounts = new Map();
     const skippedCards = new Set();
     const difficultCards = new Set();
@@ -197,6 +202,7 @@
         typedCorrect = 0;
         typedAttemptsOnCard = 0;
         typedSolved = false;
+        typeInputMode = false;
         typedAnswerInput.value = '';
         typedAnswerInput.hidden = true;
         typedFeedback.textContent = '';
@@ -298,7 +304,7 @@
                 'Revisões extras: ' + retryTotal,
                 'Dicas utilizadas: ' + hintsUsed,
                 'Tentativas digitadas: ' + typedAttempts,
-                'Nomes identificados corretamente: ' + typedCorrect,
+                'Respostas digitadas corretas: ' + typedCorrect,
                 'Desafio sem dicas: ' + (noHintsInput.checked ? 'sim' : 'não'),
                 'Melhor sequência sem ajuda: ' + bestRecallStreak,
                 'Tipos para reforçar: ' + (weakTypes || 'nenhum')
@@ -343,6 +349,7 @@
         // The selection never changes captures, records or saved game data.
         if (modeSelect.value === 'mixed')
             identifyMode = position % 2 === 1;
+        typeInputMode = modeSelect.value === 'types';
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const number = card.querySelector('.informacoes span:nth-child(2)')?.textContent?.trim() || '';
         const types = [...card.querySelectorAll('.tipos .tipo')]
@@ -353,13 +360,19 @@
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
             ' | Pokémon ainda em estudo: ' + distinctRemaining +
             (modeSelect.value === 'mixed' ? (identifyMode
-                ? ' | Identificação' : ' | Características') : '') +
+                ? ' | Identificação' : ' | Características') :
+                typeInputMode ? ' | Tipos digitados' : '') +
             ' | Memorizados: ' + masteredCards.size + ' | Revisões extras: ' + retryTotal +
             ' | Dicas: ' + hintsUsed + ' | Sequência sem ajuda: ' + currentRecallStreak;
         if (identifyMode) {
             question.textContent = 'Qual Pokémon corresponde a estes dados? Tipos: ' +
                 (types.join(', ') || 'não informados') + '. ' + description;
             answer.textContent = 'Resposta: ' + name + ' ' + number;
+        } else if (typeInputMode) {
+            question.textContent = name + ' ' + number +
+                ': digite todos os tipos separados por vírgula.';
+            answer.textContent = 'Tipos corretos: ' + (types.join(', ') || 'não informados') +
+                '. ' + description;
         } else {
             question.textContent = name + ' ' + number + ': quais são seus tipos e características?';
             answer.textContent = 'Tipos: ' + (types.join(', ') || 'não informados') +
@@ -370,8 +383,12 @@
         typedSolved = false;
         typedAnswerInput.value = '';
         typedFeedback.textContent = '';
-        typedAnswerInput.hidden = !identifyMode;
-        checkTypedAnswer.hidden = !identifyMode;
+        typedAnswerInput.placeholder = typeInputMode
+            ? 'Ex.: fogo, voador' : 'Nome do Pokémon';
+        checkTypedAnswer.textContent = typeInputMode
+            ? 'Conferir tipos digitados' : 'Conferir nome digitado';
+        typedAnswerInput.hidden = !(identifyMode || typeInputMode);
+        checkTypedAnswer.hidden = !(identifyMode || typeInputMode);
         answer.hidden = true;
         hintText.textContent = '';
         hintText.hidden = true;
@@ -418,6 +435,7 @@
         currentRecallStreak = 0;
         bestRecallStreak = 0;
         identifyMode = modeSelect.value === 'identity';
+        typeInputMode = modeSelect.value === 'types';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
@@ -448,21 +466,28 @@
         panel.focus();
     });
     checkTypedAnswer.addEventListener('click', () => {
-        if (position < 0 || revealed || !identifyMode || pauseSnapshot ||
-            typedSolved || typedAttemptsOnCard >= 2) return;
-        const submitted = normalizePokemonName(typedAnswerInput.value.trim());
-        if (!submitted) {
-            typedFeedback.textContent = 'Digite um nome antes de conferir.';
+        if (position < 0 || revealed || !(identifyMode || typeInputMode) ||
+            pauseSnapshot || typedSolved || typedAttemptsOnCard >= 2) return;
+        const raw = typedAnswerInput.value.trim();
+        if (!raw) {
+            typedFeedback.textContent = 'Digite a resposta antes de conferir.';
             return;
         }
-        const target = deck[position].querySelector('.informacoes span')
+        const card = deck[position];
+        const targetName = card.querySelector('.informacoes span')
             ?.textContent?.trim() || '';
+        const targetTypes = [...card.querySelectorAll('.tipos .tipo')]
+            .map(type => type.textContent.trim()).filter(Boolean);
+        const correct = typeInputMode
+            ? targetTypes.length > 0 &&
+              normalizePokemonTypes(raw) === normalizePokemonTypes(targetTypes.join(','))
+            : normalizePokemonName(raw) === normalizePokemonName(targetName);
         typedAttempts++;
         typedAttemptsOnCard++;
-        if (submitted === normalizePokemonName(target)) {
+        if (correct) {
             typedCorrect++;
             typedSolved = true;
-            typedFeedback.textContent = 'Identificação correta. Confirme a memorização.';
+            typedFeedback.textContent = 'Resposta correta. Confirme a memorização.';
             reveal.click();
             return;
         }
@@ -470,7 +495,7 @@
         currentRecallStreak = 0;
         typedFeedback.textContent = typedAttemptsOnCard >= 2
             ? 'Duas tentativas utilizadas. Revele a resposta para continuar.'
-            : 'Nome diferente. Você tem mais uma tentativa.';
+            : 'Resposta diferente. Você tem mais uma tentativa.';
         if (typedAttemptsOnCard >= 2) {
             checkTypedAnswer.hidden = true;
             typedAnswerInput.hidden = true;
@@ -579,6 +604,7 @@
         skippedCards.clear();
         masteredCards.clear();
         identifyMode = modeSelect.value === 'identity';
+        typeInputMode = modeSelect.value === 'types';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
@@ -603,6 +629,7 @@
         difficultCards.clear();
         masteredCards.clear();
         identifyMode = modeSelect.value === 'identity';
+        typeInputMode = modeSelect.value === 'types';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
@@ -645,6 +672,7 @@
         difficultCards.clear();
         masteredCards.clear();
         identifyMode = modeSelect.value === 'identity';
+        typeInputMode = modeSelect.value === 'types';
         modeSelect.disabled = true;
         sizeSelect.disabled = true;
         typeFocusSelect.disabled = true;
