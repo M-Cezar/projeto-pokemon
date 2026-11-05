@@ -42,6 +42,8 @@
     const hintButton = makeButton('Mostrar dica');
     const next = makeButton('Próximo cartão');
     const masteredButton = makeButton('Já memorizei');
+    const undoMastery = makeButton('Desfazer última memorização');
+    undoMastery.hidden = true;
     const again = makeButton('Revisar este cartão depois');
     const spacedRetry = makeButton('Rever em alguns cartões');
     const skip = makeButton('Pular e revisar no fim');
@@ -182,6 +184,7 @@
     let bestRecallStreak = 0;
     let pauseSnapshot = null;
     let studyReport = '';
+    let lastMastery = null;
     let typedAttempts = 0;
     let typedCorrect = 0;
     let typedAttemptsOnCard = 0;
@@ -220,6 +223,8 @@
             : '';
     }
     function reset(message) {
+        lastMastery = null;
+        undoMastery.hidden = true;
         studyReport = '';
         typedAttempts = 0;
         typedCorrect = 0;
@@ -285,6 +290,7 @@
         while (position >= 0 && position < deck.length &&
                masteredCards.has(deck[position])) position += 1;
         const card = deck[position];
+        undoMastery.hidden = !card || !lastMastery;
         pause.hidden = !card;
         progressBar.max = Math.max(1, deck.length);
         progressBar.value = card ? Math.max(0, position) : deck.length;
@@ -481,6 +487,8 @@
             : 'Nenhum cartão disponível com os filtros atuais.';
     });
     start.addEventListener('click', () => {
+        lastMastery = null;
+        undoMastery.hidden = true;
         retryCounts.clear();
         skippedCards.clear();
         masteredCards.clear();
@@ -565,6 +573,8 @@
     });
     hintButton.addEventListener('click', () => {
         if (position < 0 || revealed || hintButton.hidden || noHintsInput.checked) return;
+        lastMastery = null;
+        undoMastery.hidden = true;
         const card = deck[position];
         const name = card.querySelector('.informacoes span')?.textContent?.trim() || 'Pokémon';
         const types = [...card.querySelectorAll('.tipos .tipo')]
@@ -583,6 +593,8 @@
     });
     skip.addEventListener('click', () => {
         if (position < 0 || revealed || skippedCards.has(deck[position])) return;
+        lastMastery = null;
+        undoMastery.hidden = true;
         const card = deck[position];
         skippedCards.add(card);
         difficultCards.add(card);
@@ -593,6 +605,8 @@
     });
     reveal.addEventListener('click', () => {
         if (position < 0) return;
+        lastMastery = null;
+        undoMastery.hidden = true;
         revealed = true;
         typedAnswerInput.hidden = true;
         checkTypedAnswer.hidden = true;
@@ -606,16 +620,33 @@
         spacedRetry.hidden = again.hidden;
     });
     masteredButton.addEventListener('click', () => {
-        if (!revealed || position < 0) return;
-        const recalledWithoutHelp = !difficultCards.has(deck[position]);
+        if (!revealed || position < 0 || pauseSnapshot) return;
+        const card = deck[position];
+        lastMastery = {card, streak:currentRecallStreak, best:bestRecallStreak};
+        const recalledWithoutHelp = !difficultCards.has(card);
         currentRecallStreak = recalledWithoutHelp ? currentRecallStreak + 1 : 0;
         bestRecallStreak = Math.max(bestRecallStreak, currentRecallStreak);
-        masteredCards.add(deck[position]);
+        masteredCards.add(card);
         position += 1;
         show();
     });
+    // Undo is in-session only and affects neither captures nor stored scores.
+    // Reinsert the card immediately without creating a duplicate mastery.
+    undoMastery.addEventListener('click', () => {
+        if (!lastMastery || position < 0 || pauseSnapshot) return;
+        const {card,streak,best} = lastMastery;
+        lastMastery = null;
+        masteredCards.delete(card);
+        currentRecallStreak = streak;
+        bestRecallStreak = best;
+        deck.splice(position, 0, card);
+        show();
+        panel.focus();
+    });
     again.addEventListener('click', () => {
         if (!revealed || position < 0) return;
+        lastMastery = null;
+        undoMastery.hidden = true;
         const card = deck[position];
         const attempts = retryCounts.get(card) || 0;
         if (attempts >= 2) return;
@@ -632,6 +663,8 @@
     // rather than always at the very end of the current study deck.
     spacedRetry.addEventListener('click', () => {
         if (!revealed || position < 0 || spacedRetry.hidden || pauseSnapshot) return;
+        lastMastery = null;
+        undoMastery.hidden = true;
         const card = deck[position];
         const attempts = retryCounts.get(card) || 0;
         if (attempts >= 2) return;
@@ -646,6 +679,8 @@
     });
     next.addEventListener('click', () => {
         if (!revealed || position < 0) return;
+        lastMastery = null;
+        undoMastery.hidden = true;
         position += 1;
         show();
     });
@@ -745,7 +780,7 @@
     // The exact button visibility and text are restored on resume.
     pause.addEventListener('click', () => {
         if (position < 0) return;
-        const actions = [reveal, hintButton, skip, next, masteredButton, again, spacedRetry, checkTypedAnswer];
+        const actions = [reveal, hintButton, skip, next, masteredButton, undoMastery, again, spacedRetry, checkTypedAnswer];
         if (pauseSnapshot) {
             question.textContent = pauseSnapshot.question;
             typedAnswerInput.hidden = pauseSnapshot.typedInputHidden;
