@@ -1024,7 +1024,10 @@
     // The exact button visibility and text are restored on resume.
     pause.addEventListener('click', () => {
         if (position < 0) return;
-        const actions = [reveal, hintButton, skip, next, masteredButton, undoMastery, again, spacedRetry, checkTypedAnswer];
+        // A paused deck must also hide its special-review marker: no state
+        // changes are allowed while the question and answer are concealed.
+        const actions = [reveal, hintButton, skip, next, masteredButton, undoMastery,
+            again, spacedRetry, checkTypedAnswer, flagCurrent];
         if (pauseSnapshot) {
             question.textContent = pauseSnapshot.question;
             typedAnswerInput.hidden = pauseSnapshot.typedInputHidden;
@@ -1108,6 +1111,16 @@
             return;
         }
         if (pauseSnapshot) return;
+        if (event.key.toLowerCase() === 'f' && !flagCurrent.hidden) {
+            event.preventDefault();
+            flagCurrent.click();
+            return;
+        }
+        if (event.key.toLowerCase() === 'u' && !undoMastery.hidden) {
+            event.preventDefault();
+            undoMastery.click();
+            return;
+        }
         if (event.key === ' ' && !revealed && event.target === panel) {
             event.preventDefault();
             reveal.click();
