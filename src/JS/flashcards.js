@@ -47,7 +47,6 @@
     const copyStudyFeedback = document.createElement('p');
     copyStudyFeedback.setAttribute('role', 'status');
     copyStudyFeedback.setAttribute('aria-live', 'polite');
-    controls.insertAdjacentElement('afterend', copyStudyFeedback);
     const shuffleLabel = document.createElement('label');
     const hintText = document.createElement('p');
     hintText.className = 'flashcards-hint';
@@ -119,7 +118,7 @@
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, typeFocusLabel,
-        progress, progressBar, typeCoverage, weaknessSummary, question, hintText, answer, controls);
+        progress, progressBar, typeCoverage, weaknessSummary, question, hintText, answer, controls, copyStudyFeedback);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
