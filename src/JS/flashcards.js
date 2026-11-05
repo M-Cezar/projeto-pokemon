@@ -42,6 +42,18 @@
     const retrySkipped = makeButton('Revisar apenas os pulados');
     const focusWeakest = makeButton('Preparar treino do tipo mais difícil');
     focusWeakest.hidden = true;
+    const checkTypedAnswer = makeButton('Conferir nome digitado');
+    const typedAnswerInput = document.createElement('input');
+    typedAnswerInput.type = 'text';
+    typedAnswerInput.maxLength = 80;
+    typedAnswerInput.autocomplete = 'off';
+    typedAnswerInput.setAttribute('aria-label', 'Digite o nome do Pokémon');
+    typedAnswerInput.placeholder = 'Nome do Pokémon';
+    const typedFeedback = document.createElement('p');
+    typedFeedback.setAttribute('role', 'status');
+    typedFeedback.setAttribute('aria-live', 'polite');
+    checkTypedAnswer.hidden = true;
+    typedAnswerInput.hidden = true;
     const pause = makeButton('Pausar revisão');
     const stop = makeButton('Encerrar');
     const copyStudyReport = makeButton('Copiar relatório da revisão');
@@ -127,7 +139,8 @@
     progressBar.max = 1;
     progressBar.value = 0;
     panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, noHintsLabel, typeFocusLabel,
-        progress, progressBar, typeCoverage, weaknessSummary, question, hintText, answer, controls, copyStudyFeedback);
+        progress, progressBar, typeCoverage, weaknessSummary, question,
+        typedAnswerInput, typedFeedback, hintText, answer, controls, copyStudyFeedback);
     filters.insertAdjacentElement('afterend', panel);
 
     let deck = [];
@@ -140,6 +153,13 @@
     let bestRecallStreak = 0;
     let pauseSnapshot = null;
     let studyReport = '';
+    let typedAttempts = 0;
+    let typedCorrect = 0;
+    let typedAttemptsOnCard = 0;
+    let typedSolved = false;
+    const normalizePokemonName = value => value.normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
+        .replace(/[^a-z0-9]/g, '');
     const retryCounts = new Map();
     const skippedCards = new Set();
     const difficultCards = new Set();
@@ -169,6 +189,14 @@
     }
     function reset(message) {
         studyReport = '';
+        typedAttempts = 0;
+        typedCorrect = 0;
+        typedAttemptsOnCard = 0;
+        typedSolved = false;
+        typedAnswerInput.value = '';
+        typedAnswerInput.hidden = true;
+        typedFeedback.textContent = '';
+        checkTypedAnswer.hidden = true;
         copyStudyReport.hidden = true;
         copyStudyFeedback.textContent = '';
         pauseSnapshot = null;
@@ -252,10 +280,14 @@
                 'Difíceis: ' + difficultCards.size,
                 'Revisões extras: ' + retryTotal,
                 'Dicas utilizadas: ' + hintsUsed,
+                'Tentativas digitadas: ' + typedAttempts,
+                'Nomes identificados corretamente: ' + typedCorrect,
                 'Desafio sem dicas: ' + (noHintsInput.checked ? 'sim' : 'não'),
                 'Melhor sequência sem ajuda: ' + bestRecallStreak,
                 'Tipos para reforçar: ' + (weakTypes || 'nenhum')
             ].join('\n');
+            typedAnswerInput.hidden = true;
+            checkTypedAnswer.hidden = true;
             copyStudyReport.hidden = false;
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
                 ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
@@ -317,6 +349,12 @@
                 '. ' + description;
         }
         revealed = false;
+        typedAttemptsOnCard = 0;
+        typedSolved = false;
+        typedAnswerInput.value = '';
+        typedFeedback.textContent = '';
+        typedAnswerInput.hidden = !identifyMode;
+        checkTypedAnswer.hidden = !identifyMode;
         answer.hidden = true;
         hintText.textContent = '';
         hintText.hidden = true;
@@ -392,6 +430,41 @@
         show();
         panel.focus();
     });
+    checkTypedAnswer.addEventListener('click', () => {
+        if (position < 0 || revealed || !identifyMode || pauseSnapshot ||
+            typedSolved || typedAttemptsOnCard >= 2) return;
+        const submitted = normalizePokemonName(typedAnswerInput.value.trim());
+        if (!submitted) {
+            typedFeedback.textContent = 'Digite um nome antes de conferir.';
+            return;
+        }
+        const target = deck[position].querySelector('.informacoes span')
+            ?.textContent?.trim() || '';
+        typedAttempts++;
+        typedAttemptsOnCard++;
+        if (submitted === normalizePokemonName(target)) {
+            typedCorrect++;
+            typedSolved = true;
+            typedFeedback.textContent = 'Identificação correta. Confirme a memorização.';
+            reveal.click();
+            return;
+        }
+        difficultCards.add(deck[position]);
+        currentRecallStreak = 0;
+        typedFeedback.textContent = typedAttemptsOnCard >= 2
+            ? 'Duas tentativas utilizadas. Revele a resposta para continuar.'
+            : 'Nome diferente. Você tem mais uma tentativa.';
+        if (typedAttemptsOnCard >= 2) {
+            checkTypedAnswer.hidden = true;
+            typedAnswerInput.hidden = true;
+        }
+    });
+    typedAnswerInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !checkTypedAnswer.hidden) {
+            event.preventDefault();
+            checkTypedAnswer.click();
+        }
+    });
     hintButton.addEventListener('click', () => {
         if (position < 0 || revealed || hintButton.hidden || noHintsInput.checked) return;
         const card = deck[position];
@@ -423,6 +496,8 @@
     reveal.addEventListener('click', () => {
         if (position < 0) return;
         revealed = true;
+        typedAnswerInput.hidden = true;
+        checkTypedAnswer.hidden = true;
         answer.hidden = false;
         reveal.hidden = true;
         hintButton.hidden = true;
@@ -569,9 +644,10 @@
     // The exact button visibility and text are restored on resume.
     pause.addEventListener('click', () => {
         if (position < 0) return;
-        const actions = [reveal, hintButton, skip, next, masteredButton, again, spacedRetry];
+        const actions = [reveal, hintButton, skip, next, masteredButton, again, spacedRetry, checkTypedAnswer];
         if (pauseSnapshot) {
             question.textContent = pauseSnapshot.question;
+            typedAnswerInput.hidden = pauseSnapshot.typedInputHidden;
             answer.hidden = pauseSnapshot.answerHidden;
             hintText.hidden = pauseSnapshot.hintHidden;
             actions.forEach((button, index) => {
@@ -584,11 +660,13 @@
         }
         pauseSnapshot = {
             question: question.textContent,
+            typedInputHidden: typedAnswerInput.hidden,
             answerHidden: answer.hidden,
             hintHidden: hintText.hidden,
             hidden: actions.map(button => button.hidden)
         };
         question.textContent = 'Revisão pausada. Retome para continuar.';
+        typedAnswerInput.hidden = true;
         answer.hidden = true;
         hintText.hidden = true;
         actions.forEach(button => { button.hidden = true; });
