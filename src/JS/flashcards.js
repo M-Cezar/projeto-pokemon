@@ -50,6 +50,8 @@
     const retryMissed = makeButton('Revisar não memorizados');
     const retryDifficult = makeButton('Revisar cartões difíceis');
     const retryTopFive = makeButton('Revisar até 5 cartões mais difíceis');
+    const retryRecurring = makeButton('Revisar erros recorrentes (até 8)');
+    retryRecurring.hidden = true;
     retryTopFive.hidden = true;
     const retrySkipped = makeButton('Revisar apenas os pulados');
     const focusWeakest = makeButton('Preparar treino do tipo mais difícil');
@@ -331,6 +333,7 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
         retrySkipped.hidden = true;
         focusWeakest.hidden = true;
         focusWeakest.dataset.type = '';
@@ -379,6 +382,9 @@
                     name + ' (' + count + ')').join(', ') + '.'
                 : 'Nenhum tipo marcado como difícil nesta rodada.';
             const pending = [...new Set(deck)].filter(item => !masteredCards.has(item));
+            const recurring = [...new Set(deck)].filter(item =>
+                (retryCounts.get(item) || 0) >= 2);
+            retryRecurring.hidden = recurring.length === 0;
             position = -1;
             const distinct = new Set(deck).size;
             const weakTypes = ranked.map(([name, count]) => name + ': ' + count).join(', ');
@@ -602,6 +608,7 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
         retrySkipped.hidden = true;
         restartRound.hidden = false;
         stop.hidden = false;
@@ -811,6 +818,7 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
         retrySkipped.hidden = true;
         stop.hidden = false;
         show();
@@ -847,6 +855,43 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
+        retrySkipped.hidden = true;
+        stop.hidden = false;
+        show();
+        panel.focus();
+    });
+    // A bounded manual replay of repeated mistakes, separate from all hard cards.
+    retryRecurring.addEventListener('click', () => {
+        if (position >= 0 || retryRecurring.hidden) return;
+        const recurring = [...new Set(deck)]
+            .filter(card => (retryCounts.get(card) || 0) >= 2)
+            .sort((a,b) => (retryCounts.get(b) || 0) -
+                (retryCounts.get(a) || 0))
+            .slice(0,8);
+        if (!recurring.length) return;
+        deck = recurring;
+        position = 0;
+        retryTotal = 0;
+        hintsUsed = 0;
+        currentRecallStreak = 0;
+        bestRecallStreak = 0;
+        retryCounts.clear();
+        skippedCards.clear();
+        difficultCards.clear();
+        masteredCards.clear();
+        lastMastery = null;
+        identifyMode = modeSelect.value === 'identity';
+        typeInputMode = modeSelect.value === 'types';
+        modeSelect.disabled = true;
+        sizeSelect.disabled = true;
+        typeFocusSelect.disabled = true;
+        noHintsInput.disabled = true;
+        start.hidden = true;
+        retryMissed.hidden = true;
+        retryDifficult.hidden = true;
+        retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
         retrySkipped.hidden = true;
         stop.hidden = false;
         show();
@@ -873,6 +918,7 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
         retrySkipped.hidden = true;
         stop.hidden = false;
         show();
@@ -917,6 +963,7 @@
         retryMissed.hidden = true;
         retryDifficult.hidden = true;
         retryTopFive.hidden = true;
+        retryRecurring.hidden = true;
         retrySkipped.hidden = true;
         stop.hidden = false;
         show();
