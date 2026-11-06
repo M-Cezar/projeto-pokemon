@@ -164,7 +164,8 @@
     deckOrderSelect.setAttribute('aria-label', 'Organização dos tipos na revisão');
     for (const [value,label] of [
         ['original','Ordem dos filtros'],
-        ['alternate','Alternar tipos consecutivos']
+        ['alternate','Alternar tipos consecutivos'],
+        ['cluster','Agrupar por tipo principal']
     ]) {
         const option = document.createElement('option');
         option.value = value; option.textContent = label;
@@ -709,6 +710,18 @@
                     .map(node => node.textContent.trim()));
             }
             deck = ordered;
+        }
+        // Group by primary type to practice related Pokémon consecutively.
+        // Sorting changes only this session's deck, never the Pokédex itself.
+        if (deckOrderSelect.value === 'cluster' && !dailyChallenge) {
+            deck = [...deck].sort((a,b) => {
+                const type = card => card.querySelector('.tipos .tipo')
+                    ?.textContent?.trim() || 'sem tipo';
+                const group = type(a).localeCompare(type(b),'pt-BR');
+                if (group) return group;
+                return (a.querySelector('.informacoes span')?.textContent || '')
+                    .localeCompare(b.querySelector('.informacoes span')?.textContent || '', 'pt-BR');
+            });
         }
         if (!deck.length) return reset('Nenhum Pokémon disponível para o tipo escolhido. Ajuste o foco ou os filtros.');
         const limit = dailyChallenge || sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
