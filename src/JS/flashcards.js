@@ -165,7 +165,9 @@
     for (const [value,label] of [
         ['original','Ordem dos filtros'],
         ['alternate','Alternar tipos consecutivos'],
-        ['cluster','Agrupar por tipo principal']
+        ['cluster','Agrupar por tipo principal'],
+        ['alphabetical','Ordem alfabética'],
+        ['reverse-alphabetical','Ordem alfabética inversa']
     ]) {
         const option = document.createElement('option');
         option.value = value; option.textContent = label;
@@ -178,7 +180,8 @@
     sizeSelect.setAttribute('aria-label', 'Quantidade de cartões por rodada');
     for (const [value, label] of [
         ['all', 'Todos os visíveis'], ['5', '5 cartões'],
-        ['10', '10 cartões'], ['20', '20 cartões'],
+        ['10', '10 cartões'], ['15', '15 cartões'],
+        ['20', '20 cartões'], ['30', '30 cartões'],
         ['daily5', 'Desafio diário: 5 Pokémon']
     ]) {
         const option = document.createElement('option');
@@ -722,6 +725,16 @@
                 return (a.querySelector('.informacoes span')?.textContent || '')
                     .localeCompare(b.querySelector('.informacoes span')?.textContent || '', 'pt-BR');
             });
+        }
+        // Name ordering is a study preference, not a Pokédex or capture edit.
+        if (!dailyChallenge && ['alphabetical','reverse-alphabetical']
+            .includes(deckOrderSelect.value)) {
+            const name = card => card.querySelector('.informacoes span')
+                ?.textContent?.trim() || '';
+            const direction = deckOrderSelect.value === 'alphabetical' ? 1 : -1;
+            deck = [...deck].sort((a,b) =>
+                direction * name(a).localeCompare(name(b),'pt-BR',
+                    {sensitivity:'base',numeric:true}));
         }
         if (!deck.length) return reset('Nenhum Pokémon disponível para o tipo escolhido. Ajuste o foco ou os filtros.');
         const limit = dailyChallenge || sizeSelect.value === 'all' ? deck.length : Number(sizeSelect.value);
