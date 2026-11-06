@@ -546,6 +546,15 @@
         const types = [...card.querySelectorAll('.tipos .tipo')]
             .map(type => type.textContent.trim()).filter(Boolean);
         const description = card.querySelector('.descricao')?.textContent?.trim() || '';
+        // A description can accidentally contain the answer. Mask common
+        // name casing in identity challenges without modifying source cards.
+        let maskedDescription = description;
+        if (name && name !== 'Pokémon') {
+            for (const spelling of [name, name.toLocaleLowerCase('pt-BR'),
+                name.toLocaleUpperCase('pt-BR')]) {
+                maskedDescription = maskedDescription.split(spelling).join('[nome oculto]');
+            }
+        }
         const distinctRemaining = new Set(deck.slice(position)
             .filter(item => !masteredCards.has(item))).size;
         progress.textContent = 'Cartão ' + (position + 1) + ' de ' + deck.length +
@@ -558,7 +567,7 @@
             ' | Dicas: ' + hintsUsed + ' | Sequência sem ajuda: ' + currentRecallStreak;
         if (identifyMode) {
             question.textContent = 'Qual Pokémon corresponde a estes dados? Tipos: ' +
-                (types.join(', ') || 'não informados') + '. ' + description;
+                (types.join(', ') || 'não informados') + '. ' + maskedDescription;
             answer.textContent = 'Resposta: ' + name + ' ' + number;
         } else if (typeInputMode) {
             question.textContent = name + ' ' + number +
