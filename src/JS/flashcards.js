@@ -1216,6 +1216,15 @@
         pause.textContent = 'Retomar revisão';
         panel.focus();
     });
+
+    // Prevent concealed answers from remaining active when switching tabs.
+    // The learner resumes explicitly; visibility never advances the deck.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'hidden' || position < 0 ||
+            pauseSnapshot || pause.hidden) return;
+        pause.click();
+    });
+
     copyReviewPlan.addEventListener('click', async () => {
         if (position >= 0 || copyReviewPlan.hidden) return;
         const pending = [...new Set(deck)].filter(card => !masteredCards.has(card));
