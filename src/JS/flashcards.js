@@ -12,6 +12,34 @@
     heading.textContent = 'Treino de memória';
     const intro = document.createElement('p');
     intro.textContent = 'Revise tipos e características dos Pokémon visíveis nos filtros, sem alterar capturas ou recordes.';
+    // Optional high-contrast reading view, entirely local to this training panel.
+    const readingModeButton = document.createElement('button');
+    readingModeButton.type = 'button';
+    readingModeButton.textContent = 'Ativar leitura ampliada';
+    readingModeButton.setAttribute('aria-pressed', 'false');
+    readingModeButton.setAttribute('aria-controls', 'flashcard-reading-feedback');
+    const readingModeFeedback = document.createElement('p');
+    readingModeFeedback.id = 'flashcard-reading-feedback';
+    readingModeFeedback.setAttribute('role', 'status');
+    readingModeFeedback.setAttribute('aria-live', 'polite');
+    let readingModeEnabled = false;
+    readingModeButton.addEventListener('click', () => {
+        readingModeEnabled = !readingModeEnabled;
+        readingModeButton.setAttribute('aria-pressed', String(readingModeEnabled));
+        readingModeButton.textContent = readingModeEnabled
+            ? 'Desativar leitura ampliada' : 'Ativar leitura ampliada';
+        panel.style.backgroundColor = readingModeEnabled ? '#111827' : '';
+        panel.style.color = readingModeEnabled ? '#ffffff' : '';
+        panel.style.padding = readingModeEnabled ? '1.25rem' : '';
+        panel.style.outline = readingModeEnabled ? '3px solid #facc15' : '';
+        question.style.fontSize = readingModeEnabled ? '1.65rem' : '';
+        answer.style.fontSize = readingModeEnabled ? '1.45rem' : '';
+        question.style.lineHeight = readingModeEnabled ? '1.6' : '';
+        answer.style.lineHeight = readingModeEnabled ? '1.6' : '';
+        readingModeFeedback.textContent = readingModeEnabled
+            ? 'Leitura ampliada ativa: maior contraste e textos de resposta maiores.'
+            : 'Leitura padrão restaurada.';
+    });
     const progress = document.createElement('p');
     progress.setAttribute('role', 'status');
     progress.setAttribute('aria-live', 'polite');
@@ -220,7 +248,7 @@
     progressBar.setAttribute('aria-label', 'Avanço da rodada de flashcards');
     progressBar.max = 1;
     progressBar.value = 0;
-    panel.append(heading, intro, shuffleLabel, modeLabel, sizeLabel, deckOrderLabel, noHintsLabel, typeFocusLabel,
+    panel.append(heading, intro, readingModeButton, readingModeFeedback, shuffleLabel, modeLabel, sizeLabel, deckOrderLabel, noHintsLabel, typeFocusLabel,
         progress, progressBar, recallQuality, goalLabel, goalStatus, challengeScoreStatus, masteryMilestone, typeCoverage, weaknessSummary, question,
         typedAnswerInput, typedFeedback, hintText, answer, controls,
         shortcutGuide, copyStudyFeedback, previewDeckSummary, flaggedSummary);
