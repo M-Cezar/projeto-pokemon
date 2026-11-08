@@ -109,6 +109,8 @@
     const restartRound = makeButton('Recomeçar com os filtros atuais');
     restartRound.hidden = true;
     const copyStudyReport = makeButton('Copiar relatório da revisão');
+    const downloadStudyReport = makeButton('Salvar relatório de estudo (.txt)');
+    downloadStudyReport.hidden = true;
     const copyReviewPlan = makeButton('Copiar plano de reforço');
     copyReviewPlan.hidden = true;
     copyStudyReport.hidden = true;
@@ -353,6 +355,7 @@
         typedFeedback.textContent = '';
         checkTypedAnswer.hidden = true;
         copyStudyReport.hidden = true;
+        downloadStudyReport.hidden = true;
         copyStudyFeedback.textContent = '';
         pauseSnapshot = null;
         pause.hidden = true;
@@ -498,6 +501,7 @@
             typedAnswerInput.hidden = true;
             checkTypedAnswer.hidden = true;
             copyStudyReport.hidden = false;
+            downloadStudyReport.hidden = false;
             copyReviewPlan.hidden = pending.length === 0 && difficultCards.size === 0;
             progress.textContent = 'Revisão concluída: ' + masteredCards.size +
                 ' Pokémon memorizados, ' + pending.length + ' pendentes e ' +
@@ -1260,6 +1264,36 @@
             copyStudyFeedback.textContent = 'O navegador não autorizou a cópia.';
         }
     });
+    // A complete report can be kept locally without Clipboard permission,
+    // external services, account state or persistent Pokémon capture changes.
+    downloadStudyReport.addEventListener('click', () => {
+        if (!studyReport || downloadStudyReport.hidden || position >= 0) return;
+        if (typeof Blob !== 'function' || !URL ||
+            typeof URL.createObjectURL !== 'function') {
+            copyStudyFeedback.textContent = 'Salvar arquivo não é suportado neste navegador.';
+            return;
+        }
+        const data = new Blob([studyReport + '\n'],
+            { type: 'text/plain;charset=utf-8' });
+        const location = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        const today = new Date();
+        const date = [today.getFullYear(),
+            String(today.getMonth() + 1).padStart(2, '0'),
+            String(today.getDate()).padStart(2, '0')].join('-');
+        link.href = location;
+        link.download = 'pokedex-estudo-' + date + '.txt';
+        link.hidden = true;
+        document.body.append(link);
+        try {
+            link.click();
+            copyStudyFeedback.textContent = 'Relatório preparado para salvar no dispositivo.';
+        } finally {
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(location), 1500);
+        }
+    });
+
     copyStudyReport.addEventListener('click', async () => {
         if (!studyReport) return;
         if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
