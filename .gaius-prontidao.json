@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "estudio": "Gaius Forge Studios",
+  "nome": "projeto-pokemon",
+  "tipo": "web",
+  "plataformas": [
+    "web",
+    "educacional"
+  ],
+  "origem": "gaius-forge-prontidao",
+  "status": "preparacao_pendente",
+  "recursos": {
+    "seguranca": "pendente",
+    "testes": "nao_verificados_por_este_registro",
+    "pagamentos": "desabilitados",
+    "publicacao": "bloqueada"
+  },
+  "integracao": {
+    "codigoEmUso": false,
+    "modo": "documentacao_e_inventario",
+    "revisaoRequerida": true
+  }
+}
